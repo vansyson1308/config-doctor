@@ -1,0 +1,44 @@
+modules:
+  rovo:agent:
+    - key: config-doctor-agent
+      name: Config Doctor
+      description: Explains Jira access and configuration problems with deterministic, auditable evidence.
+      prompt: resource:agent-resources;prompt.md
+      conversationStarters:
+        - Is Config Doctor working on this site?
+      actions:
+        - ping-jira
+  action:
+    - key: ping-jira
+      name: Check Config Doctor connection
+      function: pingJira
+      actionVerb: GET
+      description: >
+        Health check. Returns the Jira site's server info and the invoking user's accountId and
+        whether they are a Jira administrator. Use when the user asks if Config Doctor works,
+        who they are, or whether they are an admin.
+      inputs:
+        note:
+          title: Note
+          type: string
+          required: false
+          description: Optional free text from the user. Pass the word probe only when the user explicitly asks for an endpoint probe.
+  function:
+    - key: pingJira
+      handler: index.pingJira
+resources:
+  - key: agent-resources
+    path: agent
+permissions:
+  scopes:
+    - read:jira-work
+    - read:jira-user
+    - manage:jira-configuration
+    - manage:jira-project
+    - storage:app
+app:
+  runtime:
+    name: nodejs24.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/9e634caf-091b-4ebc-9529-c0b895d818b8
