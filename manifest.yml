@@ -5,9 +5,13 @@ modules:
       description: Explains Jira access and configuration problems with deterministic, auditable evidence.
       prompt: resource:agent-resources;prompt.md
       conversationStarters:
+        - Why can't Emma Paris see PAY-3?
+        - Who can see PAY-3 and why?
         - Is Config Doctor working on this site?
       actions:
         - ping-jira
+        - explain-access
+        - list-who-can-see
   action:
     - key: ping-jira
       name: Check Config Doctor connection
@@ -23,9 +27,51 @@ modules:
           type: string
           required: false
           description: Optional free text from the user. Pass the word probe only when the user explicitly asks for an endpoint probe.
+    - key: explain-access
+      name: Explain a user's access
+      function: explainAccess
+      actionVerb: GET
+      description: >
+        Explains if a person can see or act on a Jira issue or project and why: verdict, evidence chain
+        (scheme grants, roles, groups, security level), fix options with blast radius, and Jira's own
+        check. For "Why can't Linh see PROJ-123?".
+      inputs:
+        user:
+          title: User
+          type: string
+          required: true
+          description: The person the question is about, as written by the user (display name, email or account ID). Use "me" if they ask about themselves.
+        issueKey:
+          title: Issue or project key
+          type: string
+          required: true
+          description: The Jira issue key (e.g. PAY-3) or, for project-level questions, the project key (e.g. PAY).
+        permission:
+          title: Permission
+          type: string
+          required: false
+          description: What they want to do, e.g. see, edit, transition, comment, create, or a Jira permission key like EDIT_ISSUES. Omit for "see".
+    - key: list-who-can-see
+      name: List who can see an issue
+      function: whoCanSee
+      actionVerb: GET
+      description: >
+        Lists everyone who can see a Jira issue and the path giving each person access (group, role,
+        reporter, lead) after the issue security level, compared with Jira's own list. For "Who can
+        see PROJ-123?".
+      inputs:
+        issueKey:
+          title: Issue key
+          type: string
+          required: true
+          description: The Jira issue key, e.g. PAY-3.
   function:
     - key: pingJira
       handler: index.pingJira
+    - key: explainAccess
+      handler: index.explainAccess
+    - key: whoCanSee
+      handler: index.whoCanSee
 resources:
   - key: agent-resources
     path: agent
@@ -39,6 +85,6 @@ permissions:
 app:
   runtime:
     name: nodejs24.x
-    memoryMB: 256
+    memoryMB: 512
     architecture: arm64
   id: ari:cloud:ecosystem::app/9e634caf-091b-4ebc-9529-c0b895d818b8

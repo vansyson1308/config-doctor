@@ -2,6 +2,8 @@
 // Usage: npm run seed            (creates/updates the demo scenario)
 //        npm run seed -- --check (read-only: reports what exists / what would be created)
 // Re-running converges to the same state: every step is find-or-create by name.
+// Note: security-level members take group NAMES and the lowercase type `projectrole`
+// (SecuritySchemeLevelMemberBean in the v3 spec); permission grants take group ids.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { client, readEnv, JiraHttpError, type Jira } from './jira.ts';
 import {
@@ -90,8 +92,8 @@ async function ensureSecurityScheme(jira: Jira, ids: { staffHq: string; devRole:
     name: SECURITY_SCHEME,
     description: 'Config Doctor demo: confidential payments issues',
     levels: [
-      { name: SECURITY_LEVELS.internal, description: 'HQ staff only', isDefault: false, members: [{ type: 'group', parameter: ids.staffHq }] },
-      { name: SECURITY_LEVELS.team, description: 'Payments developers and HQ staff', isDefault: false, members: [{ type: 'projectRole', parameter: ids.devRole }, { type: 'group', parameter: ids.staffHq }] },
+      { name: SECURITY_LEVELS.internal, description: 'HQ staff only', isDefault: false, members: [{ type: 'group', parameter: GROUPS.staffHq }] },
+      { name: SECURITY_LEVELS.team, description: 'Payments developers and HQ staff', isDefault: false, members: [{ type: 'projectrole', parameter: ids.devRole }, { type: 'group', parameter: GROUPS.staffHq }] },
     ],
   });
   return jira.get<SecurityScheme>(`/rest/api/3/issuesecurityschemes/${created.id}`);
@@ -123,25 +125,58 @@ async function ensureRoleActorGroup(jira: Jira, projectKey: string, roleId: numb
   if (!CHECK_ONLY) await jira.post(`/rest/api/3/project/${projectKey}/role/${roleId}`, { groupId: [group.groupId] });
 }
 
-async function ensureIssues(jira: Jira, projectKey: 'PAY' | 'VEND', reporterId: string, levels: Record<string, string>): Promise<void> {
-  const jql = `project = ${projectKey} AND summary ~ "CD" ORDER BY key ASC`;
-  const found = await jira.post<{ issues: Array<{ key: string; fields: { summary: string } }> }>('/rest/api/3/search/jql', { jql, fields: ['summary'], maxResults: 100 });
+// Reporter is not set explicitly: the template's create screen has no Reporter field, so the
+// seeding owner becomes reporter.
+async function ensureIssues(jira: Jira, projectKey: 'PAY' | 'VEND', levels: Record<string, string>): Promise<void> {
+  const jql = `project = ${projectKey} ORDER BY key ASC`;
+  const found = await retryOn404(() => jira.post<{ issues: Array<{ key: string; fields: { summary: string } }> }>('/rest/api/3/search/jql', { jql, fields: ['summary'], maxResults: 100 }));
   const haveSummaries = new Set(found.issues.map((i) => i.fields.summary));
   for (const issue of ISSUES[projectKey]) {
     if (haveSummaries.has(issue.summary)) { note('existing', `issue "${issue.summary}"`); continue; }
     note('created', `issue ${projectKey} "${issue.summary}"${issue.security ? ` [${SECURITY_LEVELS[issue.security]}]` : ''}`);
     if (CHECK_ONLY) continue;
     const levelId = issue.security ? levels[SECURITY_LEVELS[issue.security]] : undefined;
-    const types = await jira.get<{ issueTypes?: Array<{ id: string; name: string; subtask: boolean }> }>(`/rest/api/3/issue/createmeta/${projectKey}/issuetypes`);
+    // createmeta can lag behind fresh permission changes; the project's own issue types are enough.
+    const types = await jira.get<{ issueTypes?: Array<{ id: string; name: string; subtask: boolean }> }>(`/rest/api/3/project/${projectKey}`);
     const type = (types.issueTypes ?? []).find((t) => !t.subtask && t.name === 'Task') ?? (types.issueTypes ?? []).find((t) => !t.subtask);
     if (!type) throw new Error(`No issue type for ${projectKey}`);
-    await jira.post('/rest/api/3/issue', {
+    const body = {
       fields: {
         project: { key: projectKey }, summary: issue.summary, issuetype: { id: type.id },
-        reporter: { id: reporterId },
         ...(levelId ? { security: { id: levelId } } : {}),
       },
-    });
+    };
+    await withPropagationRetry(() => jira.post('/rest/api/3/issue', body));
+  }
+}
+
+/** JQL search intermittently answers 404 "Issue does not exist" on fresh data (observed 2026-10-30). */
+async function retryOn404<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!(err instanceof JiraHttpError) || err.status !== 404 || attempt >= 6) throw err;
+      await new Promise((r) => setTimeout(r, 2_000 * attempt));
+    }
+  }
+}
+
+/**
+ * Jira Cloud permission caches are eventually consistent: right after group/scheme changes,
+ * POST /issue can return 403 while permissions/check already says yes. Retry for up to ~5 minutes.
+ */
+async function withPropagationRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      // 403 = create permission not visible yet; 400 "cannot be set" = Set Issue Security not visible yet.
+      const lagging = err instanceof JiraHttpError && (err.status === 403 || (err.status === 400 && err.message.includes('cannot be set')));
+      if (!lagging || attempt >= 20) throw err;
+      console.log(`  (permission not propagated yet, retry ${attempt}/20 in 15s)`);
+      await new Promise((r) => setTimeout(r, 15_000));
+    }
   }
 }
 
@@ -208,10 +243,9 @@ async function main(): Promise<void> {
     await ensureRoleActorGroup(jira, 'PAY', devRole!.id, g.devVn!);
     await ensureRoleActorGroup(jira, 'PAY', devRole!.id, g.contractors!);
     const levels = Object.fromEntries((sec?.levels ?? []).map((l) => [l.name, l.id]));
-    const reporter = users.get(DEMO_USERS.staff[0])?.accountId ?? me.accountId;
-    await ensureIssues(jira, 'PAY', reporter, levels);
+    await ensureIssues(jira, 'PAY', levels);
   }
-  if (vend) await ensureIssues(jira, 'VEND', me.accountId, {});
+  if (vend) await ensureIssues(jira, 'VEND', {});
   await ensureCustomFields(jira);
   finish();
 }

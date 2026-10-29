@@ -103,6 +103,19 @@ visibility matches an admin's view. The F1 ground-truth check uses asUser `permi
 the subject's accountId. Scheduled and async scans have no user context and read **asApp**; the
 scanner records how many projects it could see, so coverage gaps are reported rather than hidden.
 
+### Behaviour verified on the demo site (2026-10-30, M1/M2)
+- **Eventual consistency**: for 1–3 minutes after group membership / scheme changes, `mypermissions`,
+  `POST /issue` and even `permissions/check` give inconsistent answers (same call flipped yes/no).
+  Config Doctor's cross-check uses the majority of up to 3 calls and discloses all raw answers.
+- **`GET /user/permission/search?issueKey=…` ignores issue security levels**: for PAY-3 (`Internal only`)
+  it returned 7 users while `permissions/check` per user allows exactly 3. Used only to discover candidates.
+- `POST /permissions/check` with `accountId` works **asUser** for a Jira admin (asApp → 403).
+- `POST /rest/api/3/search/jql` intermittently returns 404 "Issue does not exist" on new data (retry).
+- Security-level members: create with group **names** + type `projectrole`; reads return `projectRole`
+  with group name and id (`expand=all`).
+- New permission schemes get automatic grants for roles `atlassian-addons-project-access` and
+  `jira-guest-member`; Forge app accounts (accountType `app`) are actors of the addons role.
+
 ## Still UNVERIFIED
 - [ ] Whether asApp sees every project when a project's permission scheme omits the app's role (check on seeded data in M1/M3).
 - [ ] Jira event keys for configuration changes (only needed if F4 adds event-driven rescans).

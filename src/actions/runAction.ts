@@ -65,6 +65,7 @@ export function defineAction<T extends object>(spec: ActionSpec<T>) {
       summary = message.slice(0, 300);
       result = { ok: false, error: { kind: outcome, message } };
     }
+    log.info('action', { action: spec.key, outcome, summary, durationMs: Date.now() - started });
     try {
       await writeAudit({
         at: new Date(started).toISOString(),

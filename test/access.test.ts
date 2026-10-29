@@ -213,6 +213,12 @@ describe('reconcile with Jira ground truth', () => {
     expect(r).toMatchObject({ verdict: 'NO_ACCESS', groundTruthCheck: 'DECIDED_BY_JIRA' });
     expect(reconcile(base, undefined, 'x').groundTruthCheck).toBe('UNAVAILABLE');
   });
+  it('27b. flipping Jira answers are disclosed with every raw answer', () => {
+    const r = reconcile(base, false, 'permissions/check', [true, false, false]);
+    expect(r.groundTruthCheck).toBe('AGREES');
+    expect(r.groundTruth?.checks).toEqual([true, false, false]);
+    expect(r.notes.at(-1)).toContain('yes, no, no');
+  });
   it('28. admin links point at the scheme, security scheme and roles', () => {
     expect(base.adminLinks[0]).toContain('EditPermissions!default.jspa?schemeId=11001');
     expect(base.adminLinks.some((l) => l.includes('EditIssueSecurities'))).toBe(true);

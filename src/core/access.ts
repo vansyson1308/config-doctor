@@ -49,7 +49,7 @@ export interface AccessVerdict {
   evidence: EvidenceItem[];
   fixOptions: FixOption[];
   groundTruthCheck: GroundTruth;
-  groundTruth?: { jiraSays: boolean; source: string };
+  groundTruth?: { jiraSays: boolean; source: string; checks?: Array<boolean | undefined> };
   adminLinks: string[];
   notes: string[];
 }
@@ -232,10 +232,13 @@ export function explainAccess(input: AccessInput): AccessVerdict {
  * Compares our computed verdict with Jira's own permission check. Disagreement is never hidden:
  * the verdict becomes INCONCLUSIVE and both answers are reported.
  */
-export function reconcile(v: AccessVerdict, jiraSays: boolean | undefined, source: string): AccessVerdict {
+export function reconcile(v: AccessVerdict, jiraSays: boolean | undefined, source: string, checks?: Array<boolean | undefined>): AccessVerdict {
   if (jiraSays === undefined) return { ...v, groundTruthCheck: 'UNAVAILABLE' };
   const ours = v.verdict === 'HAS_ACCESS' ? true : v.verdict === 'NO_ACCESS' ? false : undefined;
-  const groundTruth = { jiraSays, source };
+  const groundTruth = { jiraSays, source, ...(checks && checks.length > 1 ? { checks } : {}) };
+  if (checks && new Set(checks).size > 1) {
+    v = { ...v, notes: [...v.notes, `Jira's permission check gave different answers on repeated calls (${checks.map((c) => (c === undefined ? 'n/a' : c ? 'yes' : 'no')).join(', ')}), which happens shortly after permission changes; the majority answer is used.`] };
+  }
   if (ours === jiraSays) return { ...v, groundTruthCheck: 'AGREES', groundTruth };
   if (ours === undefined) {
     // CONDITIONAL/INCONCLUSIVE locally: Jira's answer settles it but we say so explicitly.

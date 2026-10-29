@@ -1,0 +1,51 @@
+# M2 acceptance runs: forge logs action summaries (UTC). 17:53 = run 1 and 17:57 = run A were before the ground-truth fixes; 18:00 / 18:02 / 18:03 = runs B, C, D.
+2026-10-29T17:53:49.803 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-4: HAS_ACCESS, jira AGREES
+2026-10-29T17:53:50.706 explain-access | ok | Max Taylor BROWSE_PROJECTS VEND-1: INCONCLUSIVE, jira DISAGREES
+2026-10-29T17:53:50.820 explain-access | ok | Kevin Campbell BROWSE_PROJECTS PAY-3: INCONCLUSIVE, jira DISAGREES
+2026-10-29T17:53:51.881 explain-access | ok | Max Taylor BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T17:53:51.902 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T17:53:53.448 explain-access | ok | Ryan Lee EDIT_ISSUES VEND-3: HAS_ACCESS, jira AGREES
+2026-10-29T17:53:53.513 explain-access | ok | Cassi Owens EDIT_ISSUES PAY-1: HAS_ACCESS, jira AGREES
+2026-10-29T17:53:55.149 list-who-can-see | ok | PAY-3: 3 viewers, jira DISAGREES
+2026-10-29T17:53:55.211 explain-access | ok | Kevin Campbell TRANSITION_ISSUES PAY-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
+2026-10-29T17:53:55.595 explain-access | ok | Cassi Owens BROWSE_PROJECTS VEND-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
+2026-10-29T17:57:39.416 explain-access | ok | Max Taylor BROWSE_PROJECTS VEND-1: HAS_ACCESS, jira AGREES
+2026-10-29T17:57:39.463 explain-access | ok | Kevin Campbell BROWSE_PROJECTS PAY-3: HAS_ACCESS, jira AGREES
+2026-10-29T17:57:39.465 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-4: HAS_ACCESS, jira AGREES
+2026-10-29T17:57:41.689 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T17:57:41.736 explain-access | ok | Max Taylor BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T17:57:43.413 explain-access | ok | Cassi Owens EDIT_ISSUES PAY-1: HAS_ACCESS, jira AGREES
+2026-10-29T17:57:43.501 explain-access | ok | Ryan Lee EDIT_ISSUES VEND-3: HAS_ACCESS, jira AGREES
+2026-10-29T17:57:45.230 explain-access | ok | Cassi Owens BROWSE_PROJECTS VEND-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
+2026-10-29T17:57:45.264 explain-access | ok | Kevin Campbell TRANSITION_ISSUES PAY-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
+2026-10-29T17:57:46.025 list-who-can-see | ok | PAY-3: 3 viewers, jira DISAGREES
+2026-10-29T18:00:42.800 explain-access | ok | Max Taylor BROWSE_PROJECTS VEND-1: HAS_ACCESS, jira AGREES
+2026-10-29T18:00:43.051 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-4: HAS_ACCESS, jira AGREES
+2026-10-29T18:00:43.094 explain-access | ok | Kevin Campbell BROWSE_PROJECTS PAY-3: HAS_ACCESS, jira AGREES
+2026-10-29T18:00:45.046 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T18:00:45.097 explain-access | ok | Max Taylor BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T18:00:46.750 explain-access | ok | Cassi Owens EDIT_ISSUES PAY-1: HAS_ACCESS, jira AGREES
+2026-10-29T18:00:47.667 explain-access | ok | Ryan Lee EDIT_ISSUES VEND-3: HAS_ACCESS, jira AGREES
+2026-10-29T18:00:48.193 explain-access | ok | Cassi Owens BROWSE_PROJECTS VEND-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
+2026-10-29T18:00:48.882 list-who-can-see | ok | PAY-3: 3 viewers, jira AGREES
+2026-10-29T18:00:48.961 explain-access | ok | Kevin Campbell TRANSITION_ISSUES PAY-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
+2026-10-29T18:02:02.473 explain-access | ok | Max Taylor BROWSE_PROJECTS VEND-1: HAS_ACCESS, jira AGREES
+2026-10-29T18:02:02.536 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-4: HAS_ACCESS, jira AGREES
+2026-10-29T18:02:02.726 explain-access | ok | Kevin Campbell BROWSE_PROJECTS PAY-3: HAS_ACCESS, jira AGREES
+2026-10-29T18:02:04.897 explain-access | ok | Max Taylor BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T18:02:05.455 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T18:02:07.119 explain-access | ok | Cassi Owens EDIT_ISSUES PAY-1: HAS_ACCESS, jira AGREES
+2026-10-29T18:02:07.139 explain-access | ok | Ryan Lee EDIT_ISSUES VEND-3: HAS_ACCESS, jira AGREES
+2026-10-29T18:02:07.971 list-who-can-see | ok | PAY-3: 3 viewers, jira AGREES
+2026-10-29T18:02:08.890 explain-access | ok | Kevin Campbell TRANSITION_ISSUES PAY-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
+2026-10-29T18:02:09.921 explain-access | ok | Cassi Owens BROWSE_PROJECTS VEND-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
+2026-10-29T18:03:18.892 explain-access | ok | Max Taylor BROWSE_PROJECTS VEND-1: HAS_ACCESS, jira AGREES
+2026-10-29T18:03:19.144 explain-access | ok | Kevin Campbell BROWSE_PROJECTS PAY-3: HAS_ACCESS, jira AGREES
+2026-10-29T18:03:20.061 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-4: HAS_ACCESS, jira AGREES
+2026-10-29T18:03:21.387 explain-access | ok | Emma Paris BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T18:03:21.406 explain-access | ok | Max Taylor BROWSE_PROJECTS PAY-3: NO_ACCESS (ISSUE_SECURITY), jira AGREES
+2026-10-29T18:03:22.937 explain-access | ok | Ryan Lee EDIT_ISSUES VEND-3: HAS_ACCESS, jira AGREES
+2026-10-29T18:03:22.949 explain-access | ok | Cassi Owens EDIT_ISSUES PAY-1: HAS_ACCESS, jira AGREES
+2026-10-29T18:03:23.892 list-who-can-see | ok | PAY-3: 3 viewers, jira AGREES
+2026-10-29T18:03:24.689 explain-access | ok | Kevin Campbell TRANSITION_ISSUES PAY-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
+2026-10-29T18:03:25.284 explain-access | ok | Cassi Owens BROWSE_PROJECTS VEND-2: NO_ACCESS (PERMISSION_SCHEME), jira AGREES
