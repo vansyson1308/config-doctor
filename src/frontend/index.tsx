@@ -41,7 +41,7 @@ function ErrorBox({ message }: { message: string }) {
   return <SectionMessage appearance="error" title="Config Doctor"><Text>{message}</Text></SectionMessage>;
 }
 
-function Overview({ data, onScan, scanning }: { data: Dashboard; onScan: () => void; scanning: boolean }) {
+function Overview({ data, onScan, scanning, onChanged }: { data: Dashboard; onScan: () => void; scanning: boolean; onChanged: () => void }) {
   const s = data.summary;
   return (
     <Stack space="space.200">
@@ -60,7 +60,7 @@ function Overview({ data, onScan, scanning }: { data: Dashboard; onScan: () => v
       )}
       {!s && (
         <SectionMessage appearance="information" title="Getting started">
-          <Text>Click Run scan now to compute the health score (usually 10–60 seconds). Meanwhile, Check access and Impact preview work immediately. With Rovo, open Ask Rovo and pick the Config Doctor agent.</Text>
+          <Text>New site with little configuration? Click Create demo lab below for a realistic scenario to explore, then Run scan now (usually 10–60 seconds). Check access and Impact preview work immediately. With Rovo, open Ask Rovo and pick the Config Doctor agent.</Text>
         </SectionMessage>
       )}
       {data.scan?.status === 'failed' &&<SectionMessage appearance="warning" title="Last scan failed"><Text>{data.scan.error ?? 'unknown error'}</Text></SectionMessage>}
@@ -74,6 +74,7 @@ function Overview({ data, onScan, scanning }: { data: Dashboard; onScan: () => v
           ] }))}
         />
       )}
+      <DemoLab onScan={onScan} onChanged={onChanged} />
     </Stack>
   );
 }
@@ -124,34 +125,7 @@ function AccessCheck() {
         <FormFooter align="start"><Button appearance="primary" type="submit" isDisabled={busy}>{busy ? 'Checking…' : 'Explain access'}</Button></FormFooter>
       </Form>
       {result && !result.ok && <ErrorBox message={result.error?.message ?? 'Unknown error'} />}
-      {v && (
-        <Stack space="space.150">
-          <Inline space="space.100" alignBlock="center">
-            <Lozenge appearance={v.verdict === 'HAS_ACCESS' ? 'success' : v.verdict === 'NO_ACCESS' ? 'removed' : 'moved'} isBold>{v.verdict}</Lozenge>
-            <Text>{v.user.displayName} · {v.permission} · {v.issue?.key ?? v.project.key}{v.blockingLayer ? ` · blocked by ${v.blockingLayer}` : ''} · Jira check: {v.groundTruthCheck}</Text>
-          </Inline>
-          <DynamicTable
-            caption="Evidence chain"
-            head={{ cells: [{ key: 'l', content: 'Layer' }, { key: 'g', content: 'Grant / member' }, { key: 'm', content: 'Matches' }, { key: 'v', content: 'Why' }] }}
-            rows={v.evidence.map((e, i) => ({ key: String(i), cells: [
-              { key: 'l', content: e.layer === 'ISSUE_SECURITY' ? `Security level ${e.level ?? ''}` : e.layer === 'PERMISSION_SCHEME' ? `Scheme ${e.scheme ?? ''}` : e.layer },
-              { key: 'g', content: e.grant },
-              { key: 'm', content: e.userMatches === true ? <Lozenge appearance="success">yes</Lozenge> : e.userMatches === false ? <Lozenge appearance="removed">no</Lozenge> : <Lozenge>{String(e.userMatches)}</Lozenge> },
-              { key: 'v', content: e.via },
-            ] }))}
-          />
-          {v.fixOptions.length > 0 && (
-            <DynamicTable
-              caption="Fix options (simulated; nothing is changed)"
-              head={{ cells: [{ key: 'a', content: 'Action' }, { key: 'r', content: 'Risk' }, { key: 's', content: 'Resolves' }, { key: 'b', content: 'Blast radius' }] }}
-              rows={v.fixOptions.map((f, i) => ({ key: String(i), cells: [
-                { key: 'a', content: f.action }, { key: 'r', content: riskLozenge(f.risk) }, { key: 's', content: f.resolves ? 'yes' : 'not alone' }, { key: 'b', content: f.alsoGrants },
-              ] }))}
-            />
-          )}
-          {v.notes.map((n) => <Text key={n}>ℹ️ {n}</Text>)}
-        </Stack>
-      )}
+      {v && <VerdictView v={v} />}
     </Stack>
   );
 }
@@ -189,16 +163,7 @@ function WhoCanSee() {
         <FormFooter align="start"><Button appearance="primary" type="submit" isDisabled={busy}>{busy ? 'Checking…' : 'List viewers'}</Button></FormFooter>
       </Form>
       {result && !result.ok && <ErrorBox message={result.error?.message ?? 'Unknown error'} />}
-      {v && (
-        <Stack space="space.100">
-          <Text>{v.viewerCount} viewer(s) of {v.issue.key}{v.issue.securityLevel ? ` (security level "${v.issue.securityLevel}")` : ''} · Jira check: {v.groundTruth.check}</Text>
-          <DynamicTable
-            head={{ cells: [{ key: 'u', content: 'Person' }, { key: 'p', content: 'Access path(s)' }] }}
-            rows={v.viewers.map((x, i) => ({ key: String(i), cells: [{ key: 'u', content: x.displayName }, { key: 'p', content: x.paths.join(' · ') }] }))}
-          />
-          {v.notes.map((n) => <Text key={n}>ℹ️ {n}</Text>)}
-        </Stack>
-      )}
+      {v && <ViewersView v={v} />}
     </Stack>
   );
 }
@@ -245,25 +210,178 @@ function ImpactPreview() {
         <FormFooter align="start"><Button appearance="primary" type="submit" isDisabled={busy}>{busy ? 'Simulating…' : 'Preview impact'}</Button></FormFooter>
       </Form>
       {result && !result.ok && <ErrorBox message={result.error?.message ?? 'Unknown error'} />}
-      {r && (
-        <Stack space="space.150">
-          <Inline space="space.100" alignBlock="center"><Text>{r.change}</Text>{riskLozenge(r.risk)}</Inline>
-          <Text>{r.summary}</Text>
-          {r.projects.length > 0 && (
-            <DynamicTable
-              head={{ cells: [{ key: 'p', content: 'Project' }, { key: 'l', content: 'Would lose' }, { key: 'g', content: 'Would gain' }, { key: 'k', content: 'Keeps access via' }] }}
-              rows={r.projects.map((p) => ({ key: p.project, cells: [
-                { key: 'p', content: p.project },
-                { key: 'l', content: Object.entries(p.loses).map(([perm, who]) => `${perm}: ${who.join(', ')}`).join(' · ') || '—' },
-                { key: 'g', content: Object.entries(p.gains).map(([perm, who]) => `${perm}: ${who.join(', ')}`).join(' · ') || '—' },
-                { key: 'k', content: p.keepsAccess.map((k) => `${k.user} (${k.via})`).join(' · ') || '—' },
-              ] }))}
-            />
-          )}
-          {r.references.length > 0 && <Text>References: {r.references.join(' · ')}</Text>}
-          {r.notes.map((n) => <Text key={n}>ℹ️ {n}</Text>)}
-        </Stack>
+      {r && <ImpactView r={r} />}
+    </Stack>
+  );
+}
+
+function VerdictView({ v }: { v: Verdict }) {
+  return (
+      <Stack space="space.150">
+        <Inline space="space.100" alignBlock="center">
+          <Lozenge appearance={v.verdict === 'HAS_ACCESS' ? 'success' : v.verdict === 'NO_ACCESS' ? 'removed' : 'moved'} isBold>{v.verdict}</Lozenge>
+          <Text>{v.user.displayName} · {v.permission} · {v.issue?.key ?? v.project.key}{v.blockingLayer ? ` · blocked by ${v.blockingLayer}` : ''} · Jira check: {v.groundTruthCheck}</Text>
+        </Inline>
+        <DynamicTable
+          caption="Evidence chain"
+          head={{ cells: [{ key: 'l', content: 'Layer' }, { key: 'g', content: 'Grant / member' }, { key: 'm', content: 'Matches' }, { key: 'v', content: 'Why' }] }}
+          rows={v.evidence.map((e, i) => ({ key: String(i), cells: [
+            { key: 'l', content: e.layer === 'ISSUE_SECURITY' ? `Security level ${e.level ?? ''}` : e.layer === 'PERMISSION_SCHEME' ? `Scheme ${e.scheme ?? ''}` : e.layer },
+            { key: 'g', content: e.grant },
+            { key: 'm', content: e.userMatches === true ? <Lozenge appearance="success">yes</Lozenge> : e.userMatches === false ? <Lozenge appearance="removed">no</Lozenge> : <Lozenge>{String(e.userMatches)}</Lozenge> },
+            { key: 'v', content: e.via },
+          ] }))}
+        />
+        {v.fixOptions.length > 0 && (
+          <DynamicTable
+            caption="Fix options (simulated; nothing is changed)"
+            head={{ cells: [{ key: 'a', content: 'Action' }, { key: 'r', content: 'Risk' }, { key: 's', content: 'Resolves' }, { key: 'b', content: 'Blast radius' }] }}
+            rows={v.fixOptions.map((f, i) => ({ key: String(i), cells: [
+              { key: 'a', content: f.action }, { key: 'r', content: riskLozenge(f.risk) }, { key: 's', content: f.resolves ? 'yes' : 'not alone' }, { key: 'b', content: f.alsoGrants },
+            ] }))}
+          />
+        )}
+        {v.notes.map((n) => <Text key={n}>ℹ️ {n}</Text>)}
+      </Stack>
+  );
+}
+
+function ViewersView({ v }: { v: Viewers }) {
+  return (
+      <Stack space="space.100">
+        <Text>{v.viewerCount} viewer(s) of {v.issue.key}{v.issue.securityLevel ? ` (security level "${v.issue.securityLevel}")` : ''} · Jira check: {v.groundTruth.check}</Text>
+        <DynamicTable
+          head={{ cells: [{ key: 'u', content: 'Person' }, { key: 'p', content: 'Access path(s)' }] }}
+          rows={v.viewers.map((x, i) => ({ key: String(i), cells: [{ key: 'u', content: x.displayName }, { key: 'p', content: x.paths.join(' · ') }] }))}
+        />
+        {v.notes.map((n) => <Text key={n}>ℹ️ {n}</Text>)}
+      </Stack>
+  );
+}
+
+function ImpactView({ r }: { r: Impact }) {
+  return (
+      <Stack space="space.150">
+        <Inline space="space.100" alignBlock="center"><Text>{r.change}</Text>{riskLozenge(r.risk)}</Inline>
+        <Text>{r.summary}</Text>
+        {r.projects.length > 0 && (
+          <DynamicTable
+            head={{ cells: [{ key: 'p', content: 'Project' }, { key: 'l', content: 'Would lose' }, { key: 'g', content: 'Would gain' }, { key: 'k', content: 'Keeps access via' }] }}
+            rows={r.projects.map((p) => ({ key: p.project, cells: [
+              { key: 'p', content: p.project },
+              { key: 'l', content: Object.entries(p.loses).map(([perm, who]) => `${perm}: ${who.join(', ')}`).join(' · ') || '—' },
+              { key: 'g', content: Object.entries(p.gains).map(([perm, who]) => `${perm}: ${who.join(', ')}`).join(' · ') || '—' },
+              { key: 'k', content: p.keepsAccess.map((k) => `${k.user} (${k.via})`).join(' · ') || '—' },
+            ] }))}
+          />
+        )}
+        {r.references.length > 0 && <Text>References: {r.references.join(' · ')}</Text>}
+        {r.notes.map((n) => <Text key={n}>ℹ️ {n}</Text>)}
+      </Stack>
+  );
+}
+
+interface LabObject { type: string; id: string; name: string }
+interface LabStatus { state: { status: string; objects: LabObject[]; error?: string; updatedAt?: string }; tryThese: Array<{ label: string; kind: 'access' | 'viewers' | 'impact' | 'scan'; args: Record<string, string> }> }
+interface LabPreview { mode: 'create' | 'remove'; token: string; lines: string[] }
+interface LabRun { done: boolean; status: string; log: string[] }
+
+/** Try-these card: ready-made questions that work on this site because the lab created their objects. */
+function TryThese({ items, onScan }: { items: LabStatus['tryThese']; onScan: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [out, setOut] = useState<{ kind: string; data: ApiResult<Record<string, unknown>> } | null>(null);
+  const ask = async (t: LabStatus['tryThese'][number]) => {
+    if (t.kind === 'scan') { onScan(); return; }
+    setBusy(t.label);
+    try {
+      const fn = t.kind === 'access' ? 'checkAccess' : t.kind === 'viewers' ? 'whoCanSee' : 'previewImpact';
+      setOut({ kind: t.kind, data: await call<ApiResult<Record<string, unknown>>>(fn, t.args) });
+    } catch (err) {
+      setOut({ kind: t.kind, data: { ok: false, error: { kind: 'error', message: err instanceof Error ? err.message : 'Request failed' } } });
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <Stack space="space.150">
+      <Heading size="small">Try these (they work on this site)</Heading>
+      <Inline space="space.100" shouldWrap>
+        {items.map((t) => <Button key={t.label} onClick={() => void ask(t)} isDisabled={busy !== null}>{busy === t.label ? 'Working…' : t.label}</Button>)}
+      </Inline>
+      {out && !out.data.ok && <ErrorBox message={out.data.error?.message ?? 'Unknown error'} />}
+      {out?.data.ok && out.kind === 'access' && <VerdictView v={out.data as unknown as Verdict} />}
+      {out?.data.ok && out.kind === 'viewers' && <ViewersView v={out.data as unknown as Viewers} />}
+      {out?.data.ok && out.kind === 'impact' && <ImpactView r={out.data as unknown as Impact} />}
+    </Stack>
+  );
+}
+
+function DemoLab({ onScan, onChanged }: { onScan: () => void; onChanged: () => void }) {
+  const [status, setStatus] = useState<ApiResult<LabStatus> | null>(null);
+  const [preview, setPreview] = useState<ApiResult<LabPreview> | null>(null);
+  const [running, setRunning] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try { setStatus(await call<ApiResult<LabStatus>>('labStatus')); } catch (err) { setError(err instanceof Error ? err.message : 'Request failed'); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+  const ask = async (mode: 'create' | 'remove') => {
+    setError(null);
+    const r = await call<ApiResult<LabPreview>>('labPreview', { mode });
+    if (!r.ok) setError(r.error?.message ?? 'Could not prepare the preview');
+    setPreview(r.ok ? r : null);
+  };
+  const confirm = async () => {
+    if (!preview?.ok) return;
+    setRunning(preview.mode === 'create' ? 'Creating demo lab…' : 'Removing demo lab…');
+    setError(null);
+    try {
+      let r = await call<ApiResult<LabRun>>('labRun', { token: preview.token });
+      setPreview(null);
+      // Each call is one time slice; keep going until the run reports done.
+      for (let i = 0; r.ok && !r.done && i < 20; i++) {
+        setRunning(`${r.log.at(-1) ?? 'Working'}… (step ${i + 2})`);
+        r = await call<ApiResult<LabRun>>('labRun', {});
+      }
+      if (!r.ok) setError(r.error?.message ?? 'The demo lab run stopped');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Request failed');
+    } finally {
+      setRunning(null);
+      await load();
+      onChanged();
+    }
+  };
+  const st = status?.ok ? status.state : null;
+  const ready = st?.status === 'ready';
+  const partial = st && (st.status === 'creating' || st.status === 'removing' || st.status === 'failed');
+  return (
+    <Stack space="space.150">
+      <Heading size="small">Demo lab</Heading>
+      <Text>
+        {ready ? `Demo lab is ready (${st!.objects.length} objects recorded). Everything it created is listed and can be removed with one click.`
+          : 'Opt-in: creates a small, clearly labelled scenario (project CDLAB, cdlab- groups and role, two schemes, three issues, three near-duplicate fields) using only your account. Nothing else is changed, and "Remove demo lab" deletes only what it recorded.'}
+      </Text>
+      {partial && <SectionMessage appearance="warning" title={`Demo lab ${st!.status}`}><Text>{st!.error ?? 'A previous run did not finish. Run it again: finished steps are kept.'}</Text></SectionMessage>}
+      <Inline space="space.100">
+        {!ready && <Button appearance="primary" onClick={() => void ask('create')} isDisabled={!!running}>Create demo lab</Button>}
+        {(ready || (st && st.objects.length > 0)) && <Button onClick={() => void ask('remove')} isDisabled={!!running}>Remove demo lab</Button>}
+        {running && <Spinner label={running} />}
+        {running && <Text>{running}</Text>}
+      </Inline>
+      {error && <ErrorBox message={error} />}
+      {preview?.ok && (
+        <SectionMessage appearance={preview.mode === 'create' ? 'information' : 'warning'} title={preview.mode === 'create' ? 'This will create:' : 'This will remove:'}>
+          <Stack space="space.050">
+            {preview.lines.map((l) => <Text key={l}>• {l}</Text>)}
+            <Inline space="space.100">
+              <Button appearance={preview.mode === 'create' ? 'primary' : 'danger'} onClick={() => void confirm()}>{preview.mode === 'create' ? 'Confirm: create demo lab' : 'Confirm: remove demo lab'}</Button>
+              <Button appearance="subtle" onClick={() => setPreview(null)}>Cancel</Button>
+            </Inline>
+          </Stack>
+        </SectionMessage>
       )}
+      {ready && status?.ok && <TryThese items={status.tryThese} onScan={onScan} />}
     </Stack>
   );
 }
@@ -346,7 +464,7 @@ function App() {
           <Tab>Impact preview</Tab>
           <Tab>Audit log</Tab>
         </TabList>
-        <TabPanel><Box paddingBlock="space.200"><Overview data={data} onScan={onScan} scanning={scanning} /></Box></TabPanel>
+        <TabPanel><Box paddingBlock="space.200"><Overview data={data} onScan={onScan} scanning={scanning} onChanged={() => void load()} /></Box></TabPanel>
         <TabPanel><Box paddingBlock="space.200"><Findings findings={data.findings} /></Box></TabPanel>
         <TabPanel><Box paddingBlock="space.200"><Stack space="space.400"><AccessCheck /><WhoCanSee /></Stack></Box></TabPanel>
         <TabPanel><Box paddingBlock="space.200"><ImpactPreview /></Box></TabPanel>

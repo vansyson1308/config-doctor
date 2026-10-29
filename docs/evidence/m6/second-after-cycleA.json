@@ -1,0 +1,126 @@
+{
+ "site": "https://configdoctor.atlassian.net",
+ "at": "2026-10-29T20:09:10.436Z",
+ "items": {
+  "projects": [],
+  "groups": [
+   "assets-admins-configdoctor",
+   "assets-user-access-admins-configdoctor",
+   "assets-users-configdoctor",
+   "atlassian-addons",
+   "atlassian-addons-admin",
+   "confluence-admins-configdoctor",
+   "confluence-guests-configdoctor",
+   "confluence-user-access-admins-configdoctor",
+   "confluence-users-configdoctor",
+   "goals-admins-configdoctor",
+   "goals-user-access-admins-configdoctor",
+   "goals-users-configdoctor",
+   "jira-admins-configdoctor",
+   "jira-customer-service-customers-configdoctor",
+   "jira-customer-service-user-access-admins-configdoctor",
+   "jira-customer-service-users-configdoctor",
+   "jira-guests-configdoctor",
+   "jira-servicemanagement-customers-configdoctor",
+   "jira-servicemanagement-stakeholders-configdoctor",
+   "jira-servicemanagement-user-access-admins-configdoctor",
+   "jira-servicemanagement-users-configdoctor",
+   "jira-user-access-admins-configdoctor",
+   "jira-users-configdoctor",
+   "projects-admins-configdoctor",
+   "projects-user-access-admins-configdoctor",
+   "projects-users-configdoctor",
+   "system-administrators"
+  ],
+  "roles": [
+   "Administrators",
+   "Service Desk Customers",
+   "Service Desk Team",
+   "atlassian-addons-project-access",
+   "jira-guest-member"
+  ],
+  "permissionSchemes": [
+   "Default Permission Scheme"
+  ],
+  "securitySchemes": [],
+  "customFields": [
+   "Actual end",
+   "Actual start",
+   "AgentSessions",
+   "Approvals",
+   "Approvers",
+   "Category",
+   "Change reason",
+   "Change risk",
+   "Change type",
+   "Design",
+   "Epic Color",
+   "Epic Link",
+   "Epic Name",
+   "Epic Status",
+   "Flagged",
+   "Focus Areas",
+   "Goals",
+   "Impact",
+   "Incident manager",
+   "Issue color",
+   "Locked forms",
+   "Open forms",
+   "Organizations",
+   "Parent Link",
+   "Project",
+   "Project overview key",
+   "Project overview status",
+   "Rank",
+   "Request Type",
+   "Request participants",
+   "Satisfaction",
+   "Satisfaction date",
+   "Sentiment",
+   "Sprint",
+   "Start date",
+   "Status pages",
+   "Story point estimate",
+   "Submitted forms",
+   "Target end",
+   "Target start",
+   "Team",
+   "Total forms",
+   "Vulnerability",
+   "Work category",
+   "Work item created forms",
+   "[CHART] Date of First Response",
+   "[CHART] Time in Status",
+   "development"
+  ],
+  "screens": [
+   "Default Screen",
+   "Resolve Issue Screen",
+   "Workflow Screen"
+  ],
+  "workflows": [
+   "Builds Workflow",
+   "classic default workflow",
+   "jira"
+  ],
+  "workflowSchemes": [
+   "classic"
+  ],
+  "screenSchemes": [
+   "Default Screen Scheme"
+  ],
+  "issueTypeSchemes": [
+   "Default Issue Type Scheme"
+  ],
+  "issueTypeScreenSchemes": [
+   "Default Issue Type Screen Scheme"
+  ],
+  "fieldConfigSchemes": [],
+  "issueTypes": [
+   "Epic",
+   "Story",
+   "Sub-task",
+   "Task"
+  ]
+ }
+}

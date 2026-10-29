@@ -1,0 +1,147 @@
+{
+ "site": "https://configdoctor.atlassian.net",
+ "at": "2026-10-29T19:55:39.436Z",
+ "items": {
+  "projects": [
+   "CDLAB"
+  ],
+  "groups": [
+   "assets-admins-configdoctor",
+   "assets-user-access-admins-configdoctor",
+   "assets-users-configdoctor",
+   "atlassian-addons",
+   "atlassian-addons-admin",
+   "cdlab-contractors",
+   "cdlab-old-reviewers",
+   "cdlab-staff",
+   "confluence-admins-configdoctor",
+   "confluence-guests-configdoctor",
+   "confluence-user-access-admins-configdoctor",
+   "confluence-users-configdoctor",
+   "goals-admins-configdoctor",
+   "goals-user-access-admins-configdoctor",
+   "goals-users-configdoctor",
+   "jira-admins-configdoctor",
+   "jira-customer-service-customers-configdoctor",
+   "jira-customer-service-user-access-admins-configdoctor",
+   "jira-customer-service-users-configdoctor",
+   "jira-guests-configdoctor",
+   "jira-servicemanagement-customers-configdoctor",
+   "jira-servicemanagement-stakeholders-configdoctor",
+   "jira-servicemanagement-user-access-admins-configdoctor",
+   "jira-servicemanagement-users-configdoctor",
+   "jira-user-access-admins-configdoctor",
+   "jira-users-configdoctor",
+   "projects-admins-configdoctor",
+   "projects-user-access-admins-configdoctor",
+   "projects-users-configdoctor",
+   "system-administrators"
+  ],
+  "roles": [
+   "Administrators",
+   "Service Desk Customers",
+   "Service Desk Team",
+   "atlassian-addons-project-access",
+   "cdlab-developers",
+   "jira-guest-member"
+  ],
+  "permissionSchemes": [
+   "Default Permission Scheme",
+   "cdlab Permission Scheme"
+  ],
+  "securitySchemes": [
+   "cdlab Security"
+  ],
+  "customFields": [
+   "Actual end",
+   "Actual start",
+   "AgentSessions",
+   "Approvals",
+   "Approvers",
+   "CD Lab Sprint Goal",
+   "CD Lab Sprint Goal (old)",
+   "CD Lab Sprint goal",
+   "Category",
+   "Change reason",
+   "Change risk",
+   "Change type",
+   "Design",
+   "Epic Color",
+   "Epic Link",
+   "Epic Name",
+   "Epic Status",
+   "Flagged",
+   "Focus Areas",
+   "Goals",
+   "Impact",
+   "Incident manager",
+   "Issue color",
+   "Locked forms",
+   "Open forms",
+   "Organizations",
+   "Parent Link",
+   "Project",
+   "Project overview key",
+   "Project overview status",
+   "Rank",
+   "Request Type",
+   "Request participants",
+   "Satisfaction",
+   "Satisfaction date",
+   "Sentiment",
+   "Sprint",
+   "Start date",
+   "Status pages",
+   "Story Points",
+   "Story point estimate",
+   "Submitted forms",
+   "Target end",
+   "Target start",
+   "Team",
+   "Total forms",
+   "Vulnerability",
+   "Work category",
+   "Work item created forms",
+   "[CHART] Date of First Response",
+   "[CHART] Time in Status",
+   "development"
+  ],
+  "screens": [
+   "CDLAB: Simple Issue Tracking Create Issue Screen",
+   "CDLAB: Simple Issue Tracking Edit/View Issue Screen",
+   "CDLAB: Simple Issue Tracking Resolve Issue Screen",
+   "Default Screen",
+   "Resolve Issue Screen",
+   "Workflow Screen"
+  ],
+  "workflows": [
+   "Builds Workflow",
+   "CDLAB: Simple Issue Tracking Workflow",
+   "classic default workflow",
+   "jira"
+  ],
+  "workflowSchemes": [
+   "CDLAB: Simple Issue Tracking Workflow Scheme",
+   "classic"
+  ],
+  "screenSchemes": [
+   "CDLAB: Simple Issue Tracking Screen Scheme",
+   "Default Screen Scheme"
+  ],
+  "issueTypeSchemes": [
+   "CDLAB: Simple Issue Tracking Issue Type Scheme",
+   "Default Issue Type Scheme"
+  ],
+  "issueTypeScreenSchemes": [
+   "CDLAB: Simple Issue Tracking Issue Type Screen Scheme",
+   "Default Issue Type Screen Scheme"
+  ],
+  "fieldConfigSchemes": [],
+  "issueTypes": [
+   "Epic",
+   "Story",
+   "Sub-task",
+   "Task"
+  ]
+ }
+}

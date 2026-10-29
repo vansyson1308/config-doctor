@@ -28,7 +28,7 @@ function requester(as: Principal) {
 
 export interface RequestOptions {
   as?: Principal;
-  method?: 'GET' | 'POST' | 'PUT';
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   /** Status codes that should be returned as null instead of throwing (e.g. 404). */
   allow?: number[];

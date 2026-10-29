@@ -6,6 +6,8 @@ import { runExplainAccess } from '../actions/explainAccess';
 import { parseIssueKey } from '../core/validate';
 import { InvalidInputError } from '../actions/runAction';
 import { runWhoCanSee } from '../actions/whoCanSee';
+import { getLabState, previewLab, runLab } from '../lab/labService';
+import { tryThese } from '../core/lab';
 import { runAudited } from '../actions/runAction';
 import { summarizeSnapshot } from '../actions/sprawlAudit';
 import { getScanState, isRunning, startScan, STEPS } from '../scan/job';
@@ -72,6 +74,29 @@ resolver.define('previewImpact', async (req: Req) => runAudited({
   key: 'preview-change-impact', source: 'admin-page', accountId: account(req), inputs: req.payload ?? {},
   run: async () => runChangeImpact({ changeType: req.payload?.changeType, target: req.payload?.target, newScheme: req.payload?.newScheme }),
   summarize: (r) => `${r.change}: risk ${r.risk}; ${r.summary}`.slice(0, 280),
+}));
+
+resolver.define('labStatus', async (req: Req) => runAudited({
+  key: 'demo-lab-status', source: 'admin-page', accountId: account(req), inputs: {}, audit: false,
+  run: async () => {
+    const state = await getLabState();
+    const project = state.objects.find((o) => o.type === 'project');
+    return { state, tryThese: state.status === 'ready' && project ? tryThese(project.name) : [] };
+  },
+  summarize: (r) => r.state.status,
+}));
+
+resolver.define('labPreview', async (req: Req) => runAudited({
+  key: 'demo-lab-preview', source: 'admin-page', accountId: account(req), inputs: req.payload ?? {},
+  run: async () => previewLab(req.payload?.mode === 'remove' ? 'remove' : 'create', account(req)!),
+  summarize: (r) => `${r.mode}: ${r.lines.length} lines`,
+}));
+
+// Each call runs one time slice (UI resolvers have 25 s); the page calls again until done.
+resolver.define('labRun', async (req: Req) => runAudited({
+  key: 'demo-lab-run', source: 'admin-page', accountId: account(req), inputs: {}, audit: false,
+  run: async () => runLab(account(req)!, typeof req.payload?.token === 'string' ? req.payload.token : undefined),
+  summarize: (r) => `${r.mode} ${r.done ? 'done' : 'continuing'}: ${r.status}`,
 }));
 
 export const adminResolver = resolver.getDefinitions();
