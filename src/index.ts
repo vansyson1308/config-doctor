@@ -2,3 +2,8 @@
 export { pingJira } from './actions/ping';
 export { explainAccessAction as explainAccess } from './actions/explainAccess';
 export { whoCanSeeAction as whoCanSee } from './actions/whoCanSee';
+export { sprawlAuditAction as sprawlAudit } from './actions/sprawlAudit';
+export { previewCleanupPlanAction as previewCleanupPlan, createCleanupPlanAction as createCleanupPlan } from './actions/cleanupPlan';
+export { listFindingsAction as listFindings } from './actions/listFindings';
+export { changeImpactAction as changeImpact } from './actions/changeImpact';
+export { scanWorker, weeklyScan } from './scan/job';

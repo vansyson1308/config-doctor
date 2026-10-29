@@ -2,6 +2,7 @@
 import type { GroupRef, PermissionScheme, RoleActors, SecurityLevel } from './model';
 
 export interface IndexedProject {
+  id?: string;
   key: string;
   name: string;
   style: string;

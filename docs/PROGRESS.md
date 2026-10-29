@@ -72,3 +72,30 @@ memberships, global role, 3 permission schemes, issue security scheme with 2 lev
 
 **Open issues**
 - Team-managed projects: verdicts carry a note to rely on Jira's check (model covers company-managed schemes).
+
+## M3 — F2 Sprawl Audit + F4 scheduled scan (2026-10-30) — DONE
+
+**Built**
+- Pure core `src/core/sprawl.ts` (12 rules, near-duplicate name canonicalisation, explainable health score =
+  100 − Σ weighted category ratios, stable finding ids, risk/effort ranking), `references.ts`, `cleanupPlan.ts`.
+- Chunked scanner `src/scan/` on Forge async events (`scan-queue`, consumer timeout 600 s): 10 steps, parts in
+  KVS, time-sliced (steps chained in one invocation for up to 240 s, then a continuation event), group counts
+  and projects chunked; snapshots + trend in KVS (`src/storage/snapshots.ts`). Weekly `scheduledTrigger`.
+- Actions: `run-sprawl-audit` (cached result; starts a background scan when missing/older than 24 h),
+  `list-findings(category)`, `preview-cleanup-plan` (GET, returns 15-min single-use token bound to the user) →
+  `create-cleanup-plan` (CREATE, token required). The only write in the app.
+
+**Evidence**
+- `npm test` → 116 passed; tsc clean; forge lint clean; deployed (scope `write:jira-work` added, major version approved).
+- Demo-site scan `scan-1793297690377`: all steps 0.8–2.9 s, total 198 s (queue latency), health score 39,
+  221 findings, 25/25 projects (`forge logs`). configdoctor.atlassian.net scanned via the weekly trigger.
+- Seeded mess found (Rovo `list-findings`): 4 duplicate clusters (CD Sprint Goal ×3, CD Customer Tier ×3,
+  CD Release Train ×2, CD Legacy Region ×2); all 12 CD fields on no screen; `cd-legacy-empty` and
+  `cd-old-reviewers` = empty groups that still hold grants; `CD Legacy Scheme (copy)` unused. Non-mess cd-
+  groups (staff, dev, contractors, admins) correctly not flagged.
+- Cleanup plan: preview listed 1 epic + 3 tasks and asked yes/no; after "yes" Rovo showed its own review card;
+  after confirm: PAY-6 (Epic) + PAY-7..9 (Tasks, parent PAY-6, label `config-doctor-cleanup`), verified via REST.
+
+**Open issues**
+- Queue latency ~20 s/event is avoided by time slicing; very large sites still chunk safely.
+- Group references do not include filter/dashboard sharing or global permissions (stated in the finding evidence).

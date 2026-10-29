@@ -7,11 +7,18 @@ modules:
       conversationStarters:
         - Why can't Emma Paris see PAY-3?
         - Who can see PAY-3 and why?
+        - How healthy is our Jira configuration?
+        - What happens if I remove group cd-contractors-2024?
         - Is Config Doctor working on this site?
       actions:
         - ping-jira
         - explain-access
         - list-who-can-see
+        - run-sprawl-audit
+        - list-findings
+        - preview-change-impact
+        - preview-cleanup-plan
+        - create-cleanup-plan
   action:
     - key: ping-jira
       name: Check Config Doctor connection
@@ -65,7 +72,115 @@ modules:
           type: string
           required: true
           description: The Jira issue key, e.g. PAY-3.
+    - key: run-sprawl-audit
+      name: Run configuration sprawl audit
+      function: sprawlAudit
+      actionVerb: GET
+      description: >
+        Jira configuration health score (0-100) with breakdown, trend and ranked findings: duplicate or
+        unused custom fields, empty or unused groups, unused schemes, inactive workflows, unused screens.
+      inputs:
+        scope:
+          title: Scope
+          type: string
+          required: false
+          description: Optional. Only "site" is supported.
+    - key: list-findings
+      name: List audit findings by category
+      function: listFindings
+      actionVerb: GET
+      description: >
+        Lists all findings of one category from the latest configuration scan, e.g. duplicate fields, fields
+        not on screens, unused fields, empty groups, unused schemes, inactive workflows, unused screens.
+      inputs:
+        category:
+          title: Category
+          type: string
+          required: true
+          description: What to list, e.g. "duplicate fields", "groups", "permission schemes", "workflows", "screens".
+        nameContains:
+          title: Name contains
+          type: string
+          required: false
+          description: Optional text to narrow the list by object name.
+    - key: preview-change-impact
+      name: Preview a configuration change
+      function: changeImpact
+      actionVerb: GET
+      description: >
+        Read-only simulation of a change before an admin makes it: remove a group, delete a custom field, or
+        switch a project's permission scheme. Returns who loses or gains access, references and risk.
+      inputs:
+        changeType:
+          title: Change type
+          type: string
+          required: true
+          description: One of remove-group, delete-field, switch-permission-scheme.
+        target:
+          title: Target
+          type: string
+          required: true
+          description: The group name, the custom field name or id, or (for a scheme switch) the project key.
+        newScheme:
+          title: New permission scheme
+          type: string
+          required: false
+          description: For switch-permission-scheme only, the name or id of the scheme the project would switch to.
+    - key: preview-cleanup-plan
+      name: Preview a cleanup plan
+      function: previewCleanupPlan
+      actionVerb: GET
+      description: >
+        Step 1 of 2. Shows the Jira issues (one epic and one task per finding) that a cleanup plan would
+        create in a project, without creating anything, and returns a one-time confirmToken.
+      inputs:
+        projectKey:
+          title: Project key
+          type: string
+          required: true
+          description: Key of the project where the cleanup issues should be created, e.g. PAY.
+        findingIds:
+          title: Finding IDs
+          type: string
+          required: false
+          description: Comma-separated finding ids from the audit (e.g. "GEG-1x2y, FDN-9k"). Omit for the top 10 findings.
+    - key: create-cleanup-plan
+      name: Create the confirmed cleanup plan
+      function: createCleanupPlan
+      actionVerb: CREATE
+      description: >
+        Step 2 of 2. Creates the cleanup plan issues previewed by preview-cleanup-plan. Only call after the
+        user explicitly confirmed the preview in this conversation.
+      inputs:
+        confirmToken:
+          title: Confirmation token
+          type: string
+          required: true
+          description: The confirmToken returned by preview-cleanup-plan.
+  consumer:
+    - key: scan-consumer
+      queue: scan-queue
+      function: scanWorker
+  scheduledTrigger:
+    - key: weekly-sprawl-scan
+      function: weeklyScan
+      interval: week
   function:
+    - key: sprawlAudit
+      handler: index.sprawlAudit
+    - key: listFindings
+      handler: index.listFindings
+    - key: changeImpact
+      handler: index.changeImpact
+    - key: previewCleanupPlan
+      handler: index.previewCleanupPlan
+    - key: createCleanupPlan
+      handler: index.createCleanupPlan
+    - key: scanWorker
+      handler: index.scanWorker
+      timeoutSeconds: 600
+    - key: weeklyScan
+      handler: index.weeklyScan
     - key: pingJira
       handler: index.pingJira
     - key: explainAccess
@@ -78,6 +193,7 @@ resources:
 permissions:
   scopes:
     - read:jira-work
+    - write:jira-work
     - read:jira-user
     - manage:jira-configuration
     - manage:jira-project
