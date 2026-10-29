@@ -61,6 +61,18 @@ Dashboard: health score, top findings, last scan, audit log of every agent actio
 Expose F1–F3 actions via `rovo:mcp` so other agents (Rovo Studio / external MCP clients) can call
 them.
 
+### F7. Demo Lab (judge-ready, opt-in)
+Admin page → "Create demo lab": preview of every object → confirm → the app creates project CDLAB with its
+own permission scheme and issue security scheme, groups `cdlab-staff` / `cdlab-contractors` (the admin is
+added) / `cdlab-old-reviewers` (empty but granted Browse), role `cdlab-developers`, three near-duplicate
+fields "CD Lab Sprint Goal…", and three issues — CDLAB-2 sits at level "Lab restricted", which the admin is
+not in (Jira admins do not bypass issue security; verified with Jira's own permission check). Configuration
+is created as the admin; the issues by the app, which is a member of the lab levels. Every object — including
+the screens, schemes, workflow and template fields Jira creates for a new project — is recorded; "Remove demo
+lab" deletes only recorded objects, in dependency order, and is idempotent. This is the only place the app
+creates or deletes configuration (see AGENTS.md rule 2). A "Try these" card then offers questions that work on
+the judge's own site.
+
 ## Rovo actions (draft — finalize after verifying module docs)
 | key | verb | inputs | returns |
 |---|---|---|---|

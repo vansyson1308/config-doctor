@@ -8,6 +8,7 @@ import { EMPTY_LAB, LAB, createPreview, labGrants, labLevels, recorded, removalP
 import { InvalidInputError } from '../actions/runAction';
 import { JiraError, jira, jiraGet, paginate, route } from '../jira/client';
 import { writeAudit } from '../storage/audit';
+import { invalidateSiteIndex } from '../jira/siteIndexLoader';
 
 const STATE_KEY = 'lab:state';
 const TOKEN_TTL = { value: 10, unit: 'MINUTES' } as const;
@@ -69,6 +70,7 @@ export async function runLab(accountId: string, token: string | undefined) {
   try {
     const done = mode === 'create' ? await createSteps(ctx) : await removeSteps(ctx);
     if (done) {
+      await invalidateSiteIndex();
       ctx.state = mode === 'create' ? { ...ctx.state, status: 'ready' } : { ...EMPTY_LAB, status: 'removed' };
       await save(ctx);
       await writeAudit({ at: new Date().toISOString(), accountId, action: `demo-lab-${mode}`, source: 'admin-page', inputs: {}, outcome: 'ok', summary: mode === 'create' ? `demo lab ready: ${ctx.state.objects.length} objects` : 'demo lab removed', durationMs: Date.now() - started });

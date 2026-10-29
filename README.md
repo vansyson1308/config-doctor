@@ -22,22 +22,37 @@ Built for Atlassian Codegeist 2026 (Apps for Software Teams; bonus: Best Agents,
 | F4 | **Proactive watch** — weekly scheduled scan (chunked async events), snapshots, trend and "new since last scan". | automatic |
 | F5 | **Admin page** — score, trend, findings, access check (works even where Rovo is not enabled), audit log of every action. | Jira settings → Apps → Config Doctor |
 | F6 | **MCP tools** — `explain-access`, `list-who-can-see`, `run-sprawl-audit`, `list-findings`, `preview-change-impact` exposed with `rovo:mcp` for Rovo Studio agents and MCP clients. | Rovo Studio / MCP |
+| F7 | **Demo Lab** — opt-in, self-contained scenario created and removed from the admin page so the app can be tried on any (even empty) site; every object is recorded and removed exactly. | admin page |
 
-**Safety by design:** read-only except the cleanup plan (preview → single-use token bound to the admin →
+**Safety by design:** read-only except two opt-in, previewed, audited writes — the Demo Lab (its own labelled
+objects only) and the cleanup plan (preview → single-use token bound to the admin →
 Rovo's own confirmation card → at most 3 plans per admin per hour, audited before it writes). Every action requires the invoking user to be a Jira administrator, checked server-side from
 the Forge context (never from LLM inputs). Every action is audited (who, when, inputs, outcome, duration).
 No data leaves Atlassian (no egress; eligible for *Runs on Atlassian*).
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Admin page: health score, breakdown and weekly trend](docs/screenshots/1-overview-trend.png) **Overview** — score, breakdown, trend, new since last scan | ![Access Explainer on CDLAB-2: NO_ACCESS, blocked by issue security, Jira agrees](docs/screenshots/2-access-explainer-cdlab2.png) **Access Explainer** — evidence chain, simulated fix with blast radius, Jira check AGREES |
+| ![Impact of removing group cdlab-contractors](docs/screenshots/3-impact-remove-group.png) **Change Impact Preview** — who loses which permission, risk | ![Audit log of every action](docs/screenshots/4-audit-log.png) **Audit log** — who, when, inputs, outcome, duration |
+| ![Rovo agent answering why the admin cannot see CDLAB-2](docs/screenshots/5-rovo-chat-answer.png) **Rovo chat** — the agent phrases the computed evidence | |
 
 ## Install
 
 ### For judges / site admins (installation link)
 1. Open the installation link in [`docs/SUBMISSION.md`](docs/SUBMISSION.md) while signed in as a Jira site admin.
 2. Choose your Jira site → **Install**, accept the listed scopes.
-3. In Jira: **Settings (⚙) → Apps → Config Doctor** opens the admin page. Click **Run scan now** (a scan of a
-   typical site takes 10–60 seconds) and try **Check access**.
-4. If your site has Rovo: open **Ask Rovo** → agent selector → **Config Doctor**, then try the starters,
-   e.g. "How healthy is our Jira configuration?" or "Why can't <name> see <ISSUE-KEY>?".
-5. Optional MCP: in Rovo Studio create an agent → **Tools → Add tools → config-doctor** → pick the tools.
+3. In Jira: **Settings (⚙) → Apps → Config Doctor** opens the admin page.
+4. Click **Create demo lab** → review the list of objects → **Confirm** (≈ 30–60 s). It builds a small, labelled
+   scenario on *your* site with only your account: project CDLAB, `cdlab-` groups/role, two schemes, a
+   restricted issue you cannot see, and near-duplicate fields. No users are invited.
+5. Use the **Try these** card: "Why can't I see CDLAB-2?" (NO_ACCESS via issue security, Jira agrees, with fix
+   and blast radius) · "Who can see CDLAB-2?" · "What happens if I remove group cdlab-contractors?" · **Run scan**.
+6. If your site has Rovo: **Ask Rovo** → agent selector → **Config Doctor**; the conversation starters work after step 4.
+7. Optional MCP: in Rovo Studio create an agent → **Tools → Add tools → config-doctor** → pick the tools.
+8. When done: **Remove demo lab** deletes exactly what it recorded (plus the screens/schemes Jira made for CDLAB)
+   and nothing else.
 
 Requirements: Jira Cloud; you must hold the **Administer Jira** global permission (non-admins get a polite
 refusal, recorded in the audit log). Rovo is needed only for the chat/MCP surfaces; the admin page works without it.
@@ -58,8 +73,8 @@ forge install -e development -s <your-site>.atlassian.net -p Jira --confirm-scop
 When a deploy changes scopes, add `--approve MAJOR_VERSION_RULE` to `forge deploy` and run
 `forge install --upgrade` afterwards. Logs: `forge logs -e development`.
 
-### Demo data (optional)
-`scripts/seed` creates the demo scenario (groups, roles, two projects, an issue security scheme, duplicate
+### Demo data for developers (optional)
+Judges should use the Demo Lab above. For our recording site, `scripts/seed` creates the larger demo scenario (groups, roles, two projects, an issue security scheme, duplicate
 fields) on a site you administer, using existing users only. See [`scripts/seed/README.md`](scripts/seed/README.md).
 
 ## How it works

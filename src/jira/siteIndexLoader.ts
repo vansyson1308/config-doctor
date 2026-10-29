@@ -2,7 +2,7 @@
 // radius and change-impact. Bounded concurrency + deadline; result says whether it is complete.
 import type { Holder, PermissionScheme, SecurityLevel } from '../core/model';
 import type { IndexedProject, SiteIndex } from '../core/siteIndex';
-import { cacheGet, cacheSet } from '../storage/cache';
+import { cacheDelete, cacheGet, cacheSet } from '../storage/cache';
 import { mapPool } from '../util/pool';
 import { jira, jiraGet, paginate, route, type Principal } from './client';
 import { loadRoleActors, loadRoleNames, toHolder } from './loaders';
@@ -11,6 +11,16 @@ export interface LoadedIndex extends SiteIndex {
   complete: boolean;
   projectsTotal: number;
   readAs: Principal;
+  /** Cheap fingerprint (project keys + per-scheme grant counts) checked before a cached index is reused. */
+  signature?: string;
+}
+
+/** Two light calls; a new/removed project or a changed permission scheme invalidates the cached index. */
+export async function indexSignature(as: Principal): Promise<string> {
+  const [projects, schemes] = await Promise.all([loadAllProjects(as), loadAllSchemes(as)]);
+  const keys = projects.map((p) => p.key).sort().join(',');
+  const grants = Object.values(schemes).map((s) => `${s.id}:${s.grants.length}`).sort().join(',');
+  return `${keys}|${grants}`;
 }
 
 interface RawProject { id: string; key: string; name: string; style?: string }
@@ -81,13 +91,22 @@ export async function buildSiteIndex(as: Principal, deadlineMs: number): Promise
 }
 
 /** Cached index (≤ maxAgeMinutes old) or a fresh build within the deadline. */
-export async function getSiteIndex(as: Principal, deadlineMs: number, maxAgeMinutes = 60): Promise<LoadedIndex> {
+export async function getSiteIndex(as: Principal, deadlineMs: number, maxAgeMinutes = 10): Promise<LoadedIndex> {
   const cached = await cacheGet<LoadedIndex>(CACHE_KEY);
-  // An index built by the app (weekly scan) may miss projects the admin can see: reuse same-principal only.
-  if (cached && cached.complete && cached.readAs === as && Date.now() - Date.parse(cached.builtAt) < maxAgeMinutes * 60_000) return cached;
-  const fresh = await buildSiteIndex(as, deadlineMs);
-  if (fresh.complete) await cacheSet(CACHE_KEY, fresh, maxAgeMinutes);
-  return fresh;
+  // Reuse only an index built by the same principal, recently, for an unchanged site (signature).
+  // Stale reuse once made a group-removal preview miss a brand-new project (verified 2026-10-30).
+  if (cached && cached.complete && cached.readAs === as && Date.now() - Date.parse(cached.builtAt) < maxAgeMinutes * 60_000) {
+    if (cached.signature && cached.signature === (await indexSignature(as))) return cached;
+  }
+  const [fresh, signature] = await Promise.all([buildSiteIndex(as, deadlineMs), indexSignature(as)]);
+  const withSig = { ...fresh, signature };
+  if (fresh.complete) await cacheSet(CACHE_KEY, withSig, maxAgeMinutes);
+  return withSig;
+}
+
+/** Drops the cached index (after the demo lab changes configuration). */
+export async function invalidateSiteIndex(): Promise<void> {
+  await cacheDelete(CACHE_KEY);
 }
 
 export async function storeSiteIndex(index: LoadedIndex, ttlMinutes: number): Promise<void> {

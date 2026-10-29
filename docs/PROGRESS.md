@@ -171,3 +171,64 @@ memberships, global role, 3 permission schemes, issue security scheme with 2 lev
 1. Developer console → Distribution → Sharing → copy the installation link (needs owner declarations).
 2. Optional: enable external MCP for the app in admin.atlassian.com (Connected apps → Tools) and connect a client.
 3. Record and upload the demo video (script in SUBMISSION.md §3); submit on Devpost.
+
+## M6 — Judge-ready: Demo Lab, screenshots, final regression (2026-10-30) — DONE except owner-only steps
+
+**Built**
+- **Demo Lab (F7)**, opt-in on the admin page: preview (lists every object) → single-use confirm token (10 min,
+  atomic claim) → time-sliced creation (17 s per resolver call, the page loops) of project CDLAB, its permission
+  and issue security schemes, groups cdlab-staff / cdlab-contractors (admin added) / cdlab-old-reviewers, role
+  cdlab-developers, three near-duplicate "CD Lab Sprint Goal…" fields and three issues (CDLAB-2 at level "Lab
+  restricted"). Every created id is recorded, including the per-project screens, schemes, workflow and template
+  fields Jira creates on its own. "Remove demo lab" deletes only recorded objects, in dependency order, after
+  re-checking each id still has the recorded name; idempotent; audited (started / ok / error).
+- "Try these" card with site-agnostic questions; manifest conversation starters now use CDLAB, so they work on
+  any site after the lab is created. Agent prompt points admins to the Demo Lab.
+- Site index cache: chunked KVS, reused only if its signature (project keys + grant counts per scheme) still
+  matches, 10-minute TTL, invalidated by the lab. Fixes a stale-cache bug found during acceptance (impact said 0
+  users lose access right after the lab was created).
+- `scripts/config-inventory.mjs` (read-only inventory + `--diff`), `scripts/demo-reset.mjs` (lists issues
+  labelled config-doctor-cleanup, deletes only after you type "yes", re-seeds, reminds to scan),
+  `scripts/lab-template-cleanup.mjs` (one-off dry-run-by-default cleanup of pre-fix lab leftovers).
+- Docs: README "For judges" uses the Demo Lab + screenshots section; SUBMISSION §1.3 / video script (4:35, with
+  a Demo Lab shot) / Devpost text (determinism + ground truth, 30/30 runs, audit log, works without Rovo, Demo Lab,
+  MCP); `docs/MARKETPLACE.md` (listing texts, privacy answers, owner steps); SPEC F7; AGENTS rule 2 exceptions.
+- Teamwork Graph: skipped (time-boxed). It is EAP with enrollment and has no project→team relationship that
+  would improve an access answer — see RESEARCH.md "M6 findings".
+
+**Evidence — Demo Lab acceptance (inventory snapshots in docs/evidence/m6/)**
+- Second site (configdoctor.atlassian.net, no Rovo; admin page): CDLAB-2 → NO_ACCESS via ISSUE_SECURITY, Jira
+  AGREES; who-can-see CDLAB-2 → 0 viewers, AGREES; impact of removing cdlab-contractors → admin loses
+  Browse/Create/Edit/Transition in CDLAB (medium); scan 98 → 86/87 with the lab findings → remove → 98.
+  Inventory after cycles A and B: IDENTICAL to the baseline (`second-after-cleanup` vs `second-after-cycleA`,
+  `cycleA` vs `cycleB`).
+- Demo site (one-atlas-sery, Rovo): Rovo agent answered CDLAB-2 NO_ACCESS / ISSUE_SECURITY / AGREES, fix "add to
+  cdlab-staff" at high risk, impact shows a real loss; scan 42 → 38 (10 new lab findings) → remove → 42. Two
+  create/remove cycles; inventory `demo-before` vs `demo-after-c1` and vs `demo-after-c2`: IDENTICAL. Audit rows
+  for cycle 2: create started 20:21:43, ready 20:22:25; remove done 20:22:59; scan 42 at 20:23:40.
+- Honest caveat: the first pre-fix lab cycle on the second site left Jira's template objects behind. They were
+  removed with `lab-template-cleanup.mjs` except the field **"Category"**, which Jira locks (cannot be trashed).
+  The second-site baseline snapshot was retaken after that cleanup, so it includes "Category"; every cycle
+  after the fix leaves the inventory IDENTICAL.
+- Screenshots (demo site, lab present): `docs/screenshots/1-overview-trend.png`, `2-access-explainer-cdlab2.png`,
+  `3-impact-remove-group.png`, `4-audit-log.png`, `5-rovo-chat-answer.png`, referenced from README.
+
+**Final regression (2026-10-30)**
+- `npm test` → 137 passed (10 files); `npx tsc --noEmit` clean; `forge lint` no issues.
+- `forge deploy -e development` (4.23.0) and `-e production` (2.2.0); no scope change. `forge install list`: both
+  sites on development, status Up-to-date (minor versions upgrade automatically).
+- 10 scripted F1 questions (docs/M2_QUESTIONS.md) in Rovo on the demo site: **10/10 as expected, Jira AGREES on
+  all 10** (`docs/evidence/m6/f1-regression-logs.txt`, from `forge logs`).
+- 3 impact scenarios in Rovo: same results as M5 — remove cd-contractors-2024 medium (PAY: Max, Ryan; VEND: Max,
+  Ryan, Emma lose Browse/Create/Edit/Transition); delete "CD Sprint Goal" low (0 issues/screens/filters);
+  PAY → CD Vendor Permission Scheme medium (Cassi loses Browse…; Kevin, Alana, Sơn lose Edit)
+  (`docs/evidence/m6/impact-regression-logs.txt`).
+
+**State left for recording**: the demo site has the Demo Lab present (score 38) for the video; the second site has
+no lab.
+
+**Owner-only steps remaining**
+1. Record and upload the demo video (SUBMISSION §3), submit on Devpost.
+2. Marketplace listing (docs/MARKETPLACE.md): partner profile, agreement, privacy policy URL, logo.
+3. Run `npm run demo:reset` yourself when you want to delete cleanup-plan issues (permanent deletion).
+4. Optional: enable external MCP for the app in admin.atlassian.com.

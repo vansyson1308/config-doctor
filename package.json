@@ -11,7 +11,9 @@
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "lint": "forge lint",
-    "seed": "node --env-file=.env --experimental-strip-types scripts/seed/seed.ts"
+    "seed": "node --env-file=.env --experimental-strip-types scripts/seed/seed.ts",
+    "demo:reset": "node --env-file=.env scripts/demo-reset.mjs",
+    "inventory": "node --env-file=.env scripts/config-inventory.mjs"
   },
   "dependencies": {
     "@forge/api": "^8.4.0",

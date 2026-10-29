@@ -25,13 +25,15 @@ Category: **Apps for Software Teams**. Bonus prizes: **Best Agents** (rovo:agent
 
 ### 1.3 Judge quick start (paste into Devpost "testing instructions")
 1. Install with the link above as a Jira site admin (Administer Jira).
-2. Jira → ⚙ Settings → Apps → **Config Doctor** → **Run scan now** (10–60 s) → explore Overview, Findings,
-   **Check access** (any user + issue key; "Who can see" below it), **Impact preview** (e.g. remove a group)
-   and **Audit log**. These work even if Rovo is not enabled on your site.
-3. With Rovo: Ask Rovo → agent selector → **Config Doctor** → "How healthy is our Jira configuration?",
-   "Why can't <user> see <ISSUE-KEY>?", "What happens if I remove group <group>?".
-4. MCP: Rovo Studio → Create agent → Tools → Add tools → **config-doctor** → pick tools → Test.
-5. Optional demo data: `scripts/seed` (README) recreates our scenario on your site.
+2. Jira → ⚙ Settings → Apps → **Config Doctor** → **Create demo lab** → Confirm (30–60 s; creates a labelled
+   CDLAB scenario with only your account — no invites; removable with one click).
+3. **Try these** card: "Why can't I see CDLAB-2?" → NO_ACCESS via issue security, Jira AGREES, fix + blast radius;
+   "Who can see CDLAB-2?"; "What happens if I remove group cdlab-contractors?"; **Run scan** → health score and the
+   lab's findings (near-duplicate fields, an empty group that still holds a grant).
+4. Explore **Findings**, **Impact preview**, **Audit log** (every action is recorded). All of this works without Rovo.
+5. With Rovo: Ask Rovo → agent selector → **Config Doctor** → use the conversation starters.
+6. MCP: Rovo Studio → Create agent → Tools → Add tools → **config-doctor** → pick tools → Test.
+7. Finish with **Remove demo lab**: your site's configuration returns exactly to its previous state.
 
 ## 2. Devpost write-up (draft)
 
@@ -45,7 +47,10 @@ risky, and admins can't see what a change will break before making it. Generic A
 asked about permissions will happily guess, and nobody can audit what it did.
 
 ### What it does
-Config Doctor is a Rovo agent plus a Jira admin page whose every answer is computed by code:
+Config Doctor is a Rovo agent plus a Jira admin page whose every answer is computed by deterministic code
+and cross-checked with Jira's own permission API (ground truth) — 30 of 30 scripted questions answered
+identically across three runs. It works without Rovo too (admin page), every action lands in an audit log,
+the same tools are exposed over Rovo MCP, and judges can try it on an empty site with the one-click Demo Lab:
 - **Access Explainer** — "Why can't Linh see PROJ-123?" returns a verdict, the blocking layer (permission
   scheme, issue security level or account), the evidence chain (grant → role → group), and fix options that
   are *simulated* against the model, each with its blast radius ("adding Linh to staff-hq also grants VEND
@@ -62,6 +67,8 @@ Config Doctor is a Rovo agent plus a Jira admin page whose every answer is compu
 - **Proactive watch** — weekly scan, trend and "new since last scan".
 - **Audit log** — every action from chat, MCP, the admin page or the scheduler: who, when, inputs, result.
 - **MCP** — the same tools are available to any Rovo Studio agent via `rovo:mcp`.
+- **Demo Lab** — one click builds a labelled scenario on any site (a restricted issue you can't see, an empty
+  group that still holds a grant, near-duplicate fields); one click removes exactly what it created.
 
 ### How we built it
 Forge (Node 24, TypeScript) with `rovo:agent`, 9 `action`s, `rovo:mcp`, `jira:adminPage` (UI Kit),
@@ -106,29 +113,32 @@ Config Doctor is a Forge app (manifest `rovo:agent`, `action`, `rovo:mcp`, `jira
 `scheduledTrigger`) that integrates with Jira (REST API v3) and Rovo (agent + MCP tools). It runs entirely on
 Atlassian infrastructure with no external egress.
 
-## 3. Demo video script (target 4:30, hard limit < 5:00)
+## 3. Demo video script (target 4:35, hard limit < 4:45)
 
-Recording setup: demo site https://one-atlas-sery.atlassian.net seeded with `npm run seed`; browser zoom 110%;
-Rovo panel open on the PAY board; admin page in a second tab; a fresh Rovo chat per scene. Before recording:
-run one scan so the trend has history; optionally fix one finding and re-scan so the trend moves.
+Recording setup: demo site https://one-atlas-sery.atlassian.net. Before recording run `npm run demo:reset`
+(removes cleanup-plan issues after you confirm, re-seeds), then Run scan now. Browser zoom 110%; Rovo panel on the
+PAY board; admin page in a second tab; a fresh Rovo chat per scene. Remove any existing demo lab first so scene 7
+shows it being created.
 
 | # | Time | Screen | Action | Voice-over (approx.) |
 |---|---|---|---|---|
-| 1 | 0:00–0:20 | Title card → Jira PAY board | Show PAY-3 "Fraud rule thresholds (confidential)" | "Every Jira admin knows this ticket: *why can't Emma see PAY-3?* Tracing schemes, roles, groups and security levels by hand takes hours. Config Doctor answers it in seconds — and proves it." |
-| 2 | 0:20–1:15 | Rovo → Config Doctor | Type "Why can't Emma Paris see PAY-3?" | "The agent calls a deterministic action. Verdict: no access, blocked by the issue security level. Evidence: she passes the permission scheme through the CD Developers role via cd-contractors-2024, but 'Internal only' admits only cd-staff-hq. The fix is simulated — adding her to cd-staff-hq resolves it — and the blast radius shows it also opens VEND and two more security levels. And Jira's own permission API agrees." |
-| 3 | 1:15–1:45 | Same chat | "Who can see PAY-3 and why?" | "Three people, each with the exact path — checked person by person against Jira." |
-| 4 | 1:45–2:15 | Plain Rovo vs Config Doctor (split or two takes) | Ask plain Rovo the same question; then show the audit log rows of three identical Config Doctor runs | "Ask a generic assistant and you get a plausible guess. Config Doctor gives the same, verifiable answer every time — here are three runs in the audit log." |
-| 5 | 2:15–3:05 | Rovo | "How healthy is our Jira configuration?" (score 42) → "Show all duplicate fields" → "Create a cleanup plan in PAY for the top 3" → preview → "yes" → Rovo's Confirm card → PAY epic opens | "A health score with a breakdown you can audit, ranked findings — near-duplicate fields, empty groups that still hold grants. One confirmed request turns them into a cleanup epic. It's the only thing Config Doctor ever writes: preview, your yes, Rovo's confirmation, a single-use token — and it's audited before it writes." |
-| 6 | 3:05–3:45 | Rovo | "What happens if I remove group cd-contractors-2024?" | "Before you change anything: Max and Ryan lose VEND and PAY; Emma loses VEND but keeps PAY through cd-dev-vn. A read-only simulation, in seconds." |
-| 7 | 3:45–4:15 | Admin page | Overview (score, trend), Findings, Check access + Who can see, Impact preview, Audit log | "The admin page: weekly scans, trend, every finding, access and impact tools that work even without Rovo, and an audit log of every action — chat, MCP, page or scheduler." |
-| 8 | 4:15–4:30 | Rovo Studio agent | Custom agent using config-doctor MCP tools answers "Can Kevin transition PAY-2?" | "And through Rovo MCP, any agent can use the same trusted tools." |
-| 9 | 4:30–4:40 | Title card | Name, tagline, install link | "Config Doctor. Code computes, Rovo explains." |
+| 1 | 0:00–0:15 | Title card → PAY board | Show PAY-3 "Fraud rule thresholds (confidential)" | "Every Jira admin knows this ticket: *why can't Emma see PAY-3?* Config Doctor answers it in seconds — and proves it." |
+| 2 | 0:15–1:05 | Rovo → Config Doctor | "Why can't Emma Paris see PAY-3?" | "A deterministic action, not a guess: blocked by the issue security level. Evidence: she passes the scheme via role CD Developers through cd-contractors-2024, but 'Internal only' admits only cd-staff-hq. The fix is simulated first, with its blast radius — and Jira's own permission API agrees." |
+| 3 | 1:05–1:30 | Same chat | "Who can see PAY-3 and why?" | "Three people, each with the exact path, checked person by person against Jira." |
+| 4 | 1:30–1:55 | Audit log | Three identical runs of the same question | "Same question, same answer, every time — 30 out of 30 in our test runs — and every call is in the audit log." |
+| 5 | 1:55–2:45 | Rovo | "How healthy is our Jira configuration?" → "Show all duplicate fields" → "Create a cleanup plan in PAY for the top 3" → preview → "yes" → Rovo's Confirm card → epic opens | "An explainable health score and ranked findings. One confirmed request becomes a cleanup epic — preview, your yes, Rovo's confirmation, a single-use token, audited before it writes." |
+| 6 | 2:45–3:20 | Rovo | "What happens if I remove group cd-contractors-2024?" | "Before you change anything: Max and Ryan lose VEND and PAY; Emma loses VEND but keeps PAY through cd-dev-vn. A read-only simulation." |
+| 7 | 3:20–3:35 | Admin page → Demo lab | Create demo lab → preview → Confirm → Try these: "Why can't I see CDLAB-2?" | "Judges: no setup scripts. One click builds a labelled lab on your own site — and one click removes exactly what it created." |
+| 8 | 3:35–4:05 | Admin page | Overview (score, trend), Findings, Impact preview, Audit log | "Weekly scans, trend, findings, access and impact tools that work even without Rovo, and an audit log of every action." |
+| 9 | 4:05–4:25 | Rovo Studio agent | Custom agent with config-doctor MCP tools: "Can Kevin transition PAY-2?" | "Through Rovo MCP, any agent can use the same trusted tools." |
+| 10 | 4:25–4:35 | Title card | Name, tagline, install link | "Config Doctor. Code computes, Rovo explains." |
 
 Upload: YouTube, **public**, title "Config Doctor for Jira — Codegeist 2026", link in Devpost.
 
 ## 4. Submission checklist
 - [ ] Installation link generated (section 1.2) and tested on a second site
-- [ ] Demo video recorded (< 5 min), uploaded public on YouTube
+- [ ] Demo video recorded (< 4:45), uploaded public on YouTube
+- [ ] Optional bonus: Marketplace listing submitted (docs/MARKETPLACE.md) and review-ticket link added to Devpost
 - [ ] Devpost: category Apps for Software Teams; bonus Best Agents + Best app with Atlassian MCP
 - [ ] Devpost text pasted from section 2; testing instructions from 1.3
 - [ ] Repository link (optional): push this repo to GitHub (public) if you want judges to read the code

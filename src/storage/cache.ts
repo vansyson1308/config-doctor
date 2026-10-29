@@ -42,3 +42,12 @@ export async function cacheSet<T>(key: string, value: T, ttlMinutes: number): Pr
     return false;
   }
 }
+
+/** Removes a cached value (header only: chunks expire on their own TTL and are unreachable without it). */
+export async function cacheDelete(key: string): Promise<void> {
+  try {
+    await kvs.delete(`cache:${key}`);
+  } catch (err) {
+    log.error(`cache delete failed for ${key}`, err);
+  }
+}

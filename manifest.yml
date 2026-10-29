@@ -5,10 +5,10 @@ modules:
       description: Explains Jira access and configuration problems with deterministic, auditable evidence.
       prompt: resource:agent-resources;prompt.md
       conversationStarters:
-        - Why can't Emma Paris see PAY-3?
-        - Who can see PAY-3 and why?
+        - Why can't I see CDLAB-2?
+        - Who can see CDLAB-2 and why?
         - How healthy is our Jira configuration?
-        - What happens if I remove group cd-contractors-2024?
+        - What happens if I remove group cdlab-contractors?
         - Is Config Doctor working on this site?
       actions:
         - ping-jira

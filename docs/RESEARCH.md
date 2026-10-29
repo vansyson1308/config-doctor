@@ -131,6 +131,30 @@ scanner records how many projects it could see, so coverage gaps are reported ra
 - `POST /permissions/check` and `/mypermissions` are eventually consistent after changes (see M2); `search/jql`
   intermittently 404s on fresh data.
 
+### M6 findings (2026-10-30)
+- **Teamwork Graph (bonus check) — skipped.** `requestTeamworkGraph` (`@forge/api` / `@forge/bridge`) is EAP
+  ("This method is part of the EAP for the Teamwork Graph API", requestTeamworkGraph page, Oct 16, 2026) with an
+  "Express interest" enrollment form; calls run only as the user; scopes `read:graph:<object>:<product>`; installing
+  apps with these scopes needs an org admin; and the relationships page lists no project→team relationship
+  (https://developer.atlassian.com/platform/teamwork-graph/relationships/, Sep 19, 2025). Not implemented: no
+  enrollment, and no documented way to answer "which teams work in this project" — we will not fake it.
+- **Admins do not bypass issue security.** Support doc: "If someone isn't assigned to a security scheme, they won't
+  be able to view those work items, even if they can access the rest of the space"
+  (support.atlassian.com/jira-cloud-administration/docs/configure-issue-security-schemes/). Verified: for the site
+  admin on CDLAB-2 ("Lab restricted"), `POST /permissions/check` returns no access on both sites.
+- **Creating an issue at a level the creator is not in:** the lab's levels include the app's role
+  (`atlassian-addons-project-access`, with the app user added as actor); the app creates CDLAB-2 asApp at that level.
+- **New projects get per-project objects** even without `projectTemplateKey` (business type → "Simple Issue
+  Tracking"): `<KEY>: …` issue type screen scheme, screen scheme, workflow scheme, workflow, 3 screens, issue type
+  scheme, plus template fields created asynchronously ("Story Points"; with the process-control template also the
+  Jira-locked "Category"). `DELETE /project` does not remove them. The lab records and deletes them
+  (order: issue type screen scheme → screen scheme → workflow scheme → workflow → screens → issue type scheme).
+- Endpoint scopes for the lab (spec): groups (site-admin), roles, permission/security schemes, project create/delete,
+  role actors, field create/trash, workflow/screen/scheme deletes — all `manage:jira-configuration` or
+  `manage:jira-project`; issues `write:jira-work`. No new scopes were needed.
+- A cached site index must not outlive configuration changes: the cache is now signature-checked (project keys +
+  per-scheme grant counts), 10-minute TTL, and invalidated by the lab.
+
 ## Still UNVERIFIED
 - [~] Whether asApp sees every project when a project's permission scheme omits the app's role. Mitigated, not verified: the scan records
   coverage gaps (403/400) and withholds unused-scheme advice; run-sprawl-audit compares the admin's visible project count with the scan's.

@@ -31,3 +31,15 @@ Acceptance: 3 impact scenarios correct; admin page shows score, findings, trend,
 - `rovo:mcp` exposing F1–F3; test from an MCP client.
 - Install link for judges, README, Devpost text, demo video (< 5 min, YouTube public).
 Acceptance: fresh install on a second site works by following README only.
+
+## M6 — Judge-ready (QC round 1) — target Dec 15
+1. Demo Lab on the admin page (opt-in, preview → confirm, recorded objects, exact removal, audited).
+   Acceptance: on configdoctor.atlassian.net and the demo site: create lab → scan shows lab findings →
+   "Why can't I see CDLAB-2?" NO_ACCESS via ISSUE_SECURITY with Jira AGREES → impact preview shows a real
+   loss → remove lab → new scan back to the pre-lab score and config inventory identical; twice per site.
+2. Site-agnostic agent starters; README "For judges" and SUBMISSION §1.3 use the Demo Lab (no scripts).
+3. Teamwork Graph bonus check (time-box 2 h): implement one use if available to Forge, else record why.
+4. docs/MARKETPLACE.md with every listing text and step (owner submits).
+5. Screenshots in docs/screenshots (5 PNGs), scripts/demo-reset, video script ≤ 4:45 incl. Demo Lab shot,
+   Devpost text covers determinism + ground truth, 30/30 runs, audit log, works without Rovo, Demo Lab, MCP.
+6. Final regression: tests, tsc, lint, deploy dev + prod, upgrade both sites, 10 F1 questions + 3 impact scenarios.

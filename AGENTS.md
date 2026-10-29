@@ -18,8 +18,11 @@ Never let the LLM count, filter, or infer permissions itself.
    verify something, stop and say so — do not guess. Items marked UNVERIFIED in RESEARCH.md must be
    verified before use.
 2. **Read-only by default.** No action may modify Jira configuration (schemes, fields, groups,
-   workflows). The only write allowed is creating Jira issues for a cleanup plan, and only after the
-   user explicitly confirms in chat (two-step: preview → confirm token). Never delete anything.
+   workflows). Two narrow, explicit exceptions, both two-step (preview → single-use confirm token) and audited:
+   (a) creating Jira issues for a cleanup plan after the user confirms in chat;
+   (b) the opt-in **Demo Lab** on the admin page, which creates a self-contained, `cdlab`/`CD Lab`/`CDLAB`-
+   labelled scenario with the admin's own account (never inviting or creating users), records every object
+   it and Jira create for it, and later deletes ONLY those recorded objects. Nothing else is ever deleted.
 3. **Never trust LLM-supplied inputs for authorization.** Rovo action inputs can be hallucinated.
    Validate every input (issue key exists, accountId resolves, project exists). Check the *invoking*
    user is a Jira admin (or has the needed permission) using `context.accountId`, server-side.
