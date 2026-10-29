@@ -7,3 +7,4 @@ export { previewCleanupPlanAction as previewCleanupPlan, createCleanupPlanAction
 export { listFindingsAction as listFindings } from './actions/listFindings';
 export { changeImpactAction as changeImpact } from './actions/changeImpact';
 export { scanWorker, weeklyScan } from './scan/job';
+export { adminResolver } from './admin/resolver';

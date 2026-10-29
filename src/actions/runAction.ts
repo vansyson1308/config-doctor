@@ -42,45 +42,72 @@ function sourceOf(payload: ActionPayload): AuditRecord['source'] {
   return payload.context?.moduleKey ? 'rovo' : 'mcp';
 }
 
+/**
+ * Runs `fn` with the admin gate, timing, structured errors and an audit record. Shared by Rovo
+ * actions, MCP tools and the admin page resolver.
+ */
+export async function runAudited<T extends object>(opts: {
+  key: string;
+  source: AuditRecord['source'];
+  accountId: string | null;
+  inputs: Record<string, unknown>;
+  requireAdmin?: boolean;
+  /** false for read-only page views (dashboard polling); actions are always audited. */
+  audit?: boolean;
+  run: () => Promise<T>;
+  summarize: (result: T) => string;
+}): Promise<ActionResult> {
+  const started = Date.now();
+  let outcome: AuditRecord['outcome'] = 'ok';
+  let summary = '';
+  let result: ActionResult;
+  try {
+    if (opts.requireAdmin !== false) await requireJiraAdmin(opts.accountId ?? undefined);
+    const data = await opts.run();
+    summary = opts.summarize(data);
+    result = { ok: true, ...data };
+  } catch (err: unknown) {
+    if (err instanceof NotAuthorizedError) outcome = 'denied';
+    else if (err instanceof InvalidInputError) outcome = 'invalid-input';
+    else outcome = 'error';
+    const message = err instanceof JiraError
+      ? `Jira returned HTTP ${err.status} for ${err.path}.`
+      : err instanceof Error ? err.message : 'Unexpected error';
+    if (outcome === 'error') log.error(`action ${opts.key} failed`, err);
+    summary = message.slice(0, 300);
+    result = { ok: false, error: { kind: outcome, message } };
+  }
+  log.info('action', { action: opts.key, source: opts.source, outcome, summary, durationMs: Date.now() - started });
+  if (opts.audit === false && outcome !== 'denied') return result;
+  try {
+    await writeAudit({
+      at: new Date(started).toISOString(),
+      accountId: opts.accountId,
+      action: opts.key,
+      source: opts.source,
+      inputs: sanitizeInputs(opts.inputs),
+      outcome,
+      summary,
+      durationMs: Date.now() - started,
+    });
+  } catch (err: unknown) {
+    // The result is still returned; a failed audit write is logged loudly.
+    log.error(`audit write failed for ${opts.key}`, err);
+  }
+  return result;
+}
+
 export function defineAction<T extends object>(spec: ActionSpec<T>) {
   return async (payload: ActionPayload = {}, context: ForgeContext = {}): Promise<ActionResult> => {
-    const started = Date.now();
     const accountId = context.principal?.accountId ?? null;
-    let outcome: AuditRecord['outcome'] = 'ok';
-    let summary = '';
-    let result: ActionResult;
-    try {
-      if (spec.requireAdmin !== false) await requireJiraAdmin(accountId ?? undefined);
-      const data = await spec.run({ payload, accountId });
-      summary = spec.summarize(data);
-      result = { ok: true, ...data };
-    } catch (err: unknown) {
-      if (err instanceof NotAuthorizedError) outcome = 'denied';
-      else if (err instanceof InvalidInputError) outcome = 'invalid-input';
-      else outcome = 'error';
-      const message = err instanceof JiraError
-        ? `Jira returned HTTP ${err.status} for ${err.path}.`
-        : err instanceof Error ? err.message : 'Unexpected error';
-      if (outcome === 'error') log.error(`action ${spec.key} failed`, err);
-      summary = message.slice(0, 300);
-      result = { ok: false, error: { kind: outcome, message } };
-    }
-    log.info('action', { action: spec.key, outcome, summary, durationMs: Date.now() - started });
-    try {
-      await writeAudit({
-        at: new Date(started).toISOString(),
-        accountId,
-        action: spec.key,
-        source: sourceOf(payload),
-        inputs: sanitizeInputs(payload),
-        outcome,
-        summary,
-        durationMs: Date.now() - started,
-      });
-    } catch (err: unknown) {
-      // The action result is still returned; a failed audit write is logged loudly.
-      log.error(`audit write failed for ${spec.key}`, err);
-    }
-    return result;
+    return runAudited({
+      key: spec.key,
+      source: sourceOf(payload),
+      accountId,
+      inputs: payload,
+      ...(spec.requireAdmin !== undefined ? { requireAdmin: spec.requireAdmin } : {}),
+      run: () => spec.run({ payload, accountId }),
+      summarize: spec.summarize,
+    });
   };
 }

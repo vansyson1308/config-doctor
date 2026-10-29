@@ -86,7 +86,9 @@ async function fieldDeletion(target: string) {
       ? route`/rest/api/3/field/search?id=${ref.id}&expand=screensCount,contextsCount,lastUsed&startAt=${s}&maxResults=50`
       : route`/rest/api/3/field/search?type=custom&query=${ref.name ?? ''}&expand=screensCount,contextsCount,lastUsed&startAt=${s}&maxResults=50`,
     { as: 'user', maxItems: 200 });
-  const exact = fields.filter((f) => ref.id ? f.id === ref.id : f.name.toLowerCase() === (ref.name ?? '').toLowerCase());
+  // Exact (case-sensitive) name first: near-duplicates like "Sprint Goal" / "Sprint goal" are common.
+  const caseSensitive = fields.filter((f) => ref.id ? f.id === ref.id : f.name === ref.name);
+  const exact = caseSensitive.length ? caseSensitive : fields.filter((f) => f.name.toLowerCase() === (ref.name ?? '').toLowerCase());
   if (exact.length !== 1) {
     throw new InvalidInputError(exact.length > 1
       ? `Several fields are named "${target}": ${exact.map((f) => f.id).join(', ')}. Use the field id.`

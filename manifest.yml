@@ -157,6 +157,13 @@ modules:
           type: string
           required: true
           description: The confirmToken returned by preview-cleanup-plan.
+  jira:adminPage:
+    - key: config-doctor-admin-page
+      title: Config Doctor
+      resource: admin-page
+      resolver:
+        function: adminResolver
+      render: native
   consumer:
     - key: scan-consumer
       queue: scan-queue
@@ -176,6 +183,8 @@ modules:
       handler: index.previewCleanupPlan
     - key: createCleanupPlan
       handler: index.createCleanupPlan
+    - key: adminResolver
+      handler: index.adminResolver
     - key: scanWorker
       handler: index.scanWorker
       timeoutSeconds: 600
@@ -190,6 +199,8 @@ modules:
 resources:
   - key: agent-resources
     path: agent
+  - key: admin-page
+    path: src/frontend/index.tsx
 permissions:
   scopes:
     - read:jira-work

@@ -99,3 +99,32 @@ memberships, global role, 3 permission schemes, issue security scheme with 2 lev
 **Open issues**
 - Queue latency ~20 s/event is avoided by time slicing; very large sites still chunk safely.
 - Group references do not include filter/dashboard sharing or global permissions (stated in the finding evidence).
+
+## M4 — F3 Change Impact + F5 Admin page + audit log (2026-10-30) — DONE
+
+**Built**
+- Pure core `src/core/impact.ts` (group removal per project with "keeps access via…", scheme switch
+  losers/gainers incl. site-wide exposure warning, field deletion risk), `changeRequest.ts` (+ tests).
+- Action `preview-change-impact(changeType, target, newScheme?)` — read-only; field usage = screens,
+  filters (admin override of share permissions), permission grants, approximate issue count.
+- Jira admin page (`jira:adminPage`, UI Kit): Overview (score, previous score, coverage, trend LineChart,
+  penalty breakdown, Run scan now), Findings table (all findings, risk/effort, new marker), Check access
+  form (F1 without Rovo), Audit log (refreshable). Resolver is admin-gated; actions audited (source admin-page).
+- Shared `runAudited` used by Rovo actions, MCP tools and the admin page.
+
+**Evidence**
+- `npm test` → 116 passed; tsc clean; forge lint clean; deployed.
+- Impact scenarios in Rovo (demo site), all correct against the seeded config:
+  1. remove group cd-contractors-2024 → risk medium; VEND: Max, Ryan, Emma lose Browse/Create/Edit/Transition;
+     PAY: Max, Ryan lose them, Emma keeps Browse via cd-dev-vn; references listed.
+  2. delete field "CD Sprint Goal" → (first attempt asked to disambiguate the case-variant duplicate; fixed to prefer
+     exact case) risk low: 0 issues with a value, 0 screens, 0 filters, 0 access rules.
+  3. PAY switches to "CD Vendor Permission Scheme" → risk medium; Cassi loses Browse (cd-dev-vn only); Kevin,
+     Alana, Sơn lose EDIT_ISSUES (vendor scheme grants edit to contractors only); contractors lose nothing.
+- Admin page on the demo site: score 39, 221 findings, trend with 2 points, breakdown, Check access for
+  Emma Paris / PAY-3 → NO_ACCESS · ISSUE_SECURITY · Jira AGREES with evidence chain, audit log rows for
+  every action (rovo + admin-page sources).
+- "Run scan now" with time slicing: full scan in 10.6 s (was 198 s with one event per step).
+
+**Open issues**
+- Dashboard/audit views are admin-gated but not written to the audit log (page views, not actions; polling would flood it).

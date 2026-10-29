@@ -68,7 +68,11 @@ export function impactOfGroupRemoval(index: SiteIndex, group: GroupRef, members:
     if (!scheme) continue;
     const before = toProjectModel(ip);
     const after = stripGroupFromProject(before, group);
-    for (const r of Object.values(ip.roles)) if (r.groups.some((g) => g.id === group.id || g.name === group.name)) references.push(`actor of role ${r.name} in ${ip.key}`);
+    const inRoles = Object.values(ip.roles).filter((r) => r.groups.some((g) => g.id === group.id || g.name === group.name));
+    inRoles.forEach((r) => references.push(`actor of role ${r.name} in ${ip.key}`));
+    const inGrants = scheme.grants.some((g) => g.holder.type === 'group' && (g.holder.value === group.id || g.holder.parameter === group.name));
+    // Only projects where the group actually participates can change; skip the rest (no noise).
+    if (inRoles.length === 0 && !inGrants) continue;
     const impact: ProjectImpact = { project: ip.key, loses: {}, gains: {}, keepsAccess: [] };
     for (const m of members) {
       const reduced = withoutGroup(m, group);
