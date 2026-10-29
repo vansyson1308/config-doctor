@@ -31,7 +31,8 @@ export function normalizePermission(raw: unknown): Validation<string> {
   const asKey = text.toUpperCase().replace(/[\s-]+/g, '_');
   if ((PROJECT_PERMISSIONS as readonly string[]).includes(asKey)) return { ok: true, value: asKey };
   const word = text.toLowerCase().replace(/[_-]+/g, ' ').replace(/\b(the|an?|issues?|work items?|this|it)\b/g, ' ').replace(/\s+/g, ' ').trim();
-  const hit = SYNONYMS[word] ?? SYNONYMS[word.split(' ')[0] ?? ''];
+  // Exact phrase only: "edit comments" must not silently become EDIT_ISSUES.
+  const hit = SYNONYMS[word];
   if (hit) return { ok: true, value: hit };
   return { ok: false, error: `Unknown permission "${raw}". Use a Jira project permission such as BROWSE_PROJECTS, EDIT_ISSUES, TRANSITION_ISSUES, ADD_COMMENTS, CREATE_ISSUES.` };
 }

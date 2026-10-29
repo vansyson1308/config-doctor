@@ -3,6 +3,7 @@
 import { matchHolder, type HolderMatch, type MatchContext } from './holders';
 import type { GroupRef, IssueModel, NameIndex, PermissionScheme, ProjectModel, SubjectUser } from './model';
 import { blastRadiusForGroup, blastRadiusForRole, type Risk, type SiteIndex } from './siteIndex';
+import { isSystemGroup } from './sprawl';
 
 export type Verdict = 'HAS_ACCESS' | 'NO_ACCESS' | 'CONDITIONAL' | 'INCONCLUSIVE';
 export type Layer = 'ACCOUNT' | 'PERMISSION_SCHEME' | 'ISSUE_SECURITY';
@@ -58,7 +59,7 @@ const MAX_EVIDENCE_PER_PERMISSION = 12;
 
 /** Holders that exist for apps / the platform; never suggest adding a human to them. */
 export function isSystemHolderName(name: string): boolean {
-  return /^atlassian-addons/i.test(name) || /^site-admins?$/i.test(name) || /^jira-admins/i.test(name);
+  return /^atlassian-addons/i.test(name) || isSystemGroup(name);
 }
 
 function toUserMatches(m: HolderMatch): EvidenceItem['userMatches'] {

@@ -63,6 +63,7 @@ export async function trend(n = 12): Promise<SnapshotSummary[]> {
 /** Finding ids present in `latest` but not in `previous` (F4 "new since last scan"). */
 export function newFindingIds(latest: Snapshot, previous: Snapshot | undefined): string[] {
   if (!previous) return [];
-  const before = new Set(previous.findings.map((f) => f.id));
-  return latest.findings.filter((f) => !before.has(f.id)).map((f) => f.id);
+  // Findings are capped per rule in the snapshot; the full id list avoids false "new" items.
+  const before = new Set(previous.allFindingIds ?? previous.findings.map((f) => f.id));
+  return (latest.allFindingIds ?? latest.findings.map((f) => f.id)).filter((id) => !before.has(id));
 }

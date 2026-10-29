@@ -10,10 +10,11 @@ import { mapPool } from '../util/pool';
 const AS = 'app' as const;
 
 export async function collectFields(): Promise<FieldInfo[]> {
-  const raw = await paginate<{ id: string; name: string; screensCount?: number; contextsCount?: number; isLocked?: boolean; lastUsed?: FieldInfo['lastUsed'] }>(
+  const raw = await paginate<{ id: string; name: string; schema?: { custom?: string }; screensCount?: number; contextsCount?: number; isLocked?: boolean; lastUsed?: FieldInfo['lastUsed'] }>(
     (s) => route`/rest/api/3/field/search?type=custom&expand=lastUsed,screensCount,contextsCount,isLocked&startAt=${s}&maxResults=50`, { as: AS, maxItems: 20000 });
   return raw.map((f) => ({
     id: f.id, name: f.name,
+    ...(f.schema?.custom ? { customType: f.schema.custom } : {}),
     ...(f.screensCount !== undefined ? { screensCount: f.screensCount } : {}),
     ...(f.contextsCount !== undefined ? { contextsCount: f.contextsCount } : {}),
     ...(f.isLocked !== undefined ? { isLocked: f.isLocked } : {}),
@@ -36,21 +37,29 @@ export async function countGroupMembers(groups: GroupInfo[]): Promise<GroupInfo[
   return counted.results.map((g, i) => g ?? groups[i]!);
 }
 
-/** Projects with their permission scheme id and the actors of roles referenced by that scheme. */
-export async function collectProjects(offset: number, limit: number, deadlineMs: number): Promise<{ projects: IndexedProject[]; total: number; done: boolean }> {
+/**
+ * Projects with their permission scheme id and the actors of every role used by a permission grant or an
+ * issue-security level. Projects whose scheme the app cannot read are reported as coverage gaps.
+ */
+export async function collectProjects(offset: number, limit: number): Promise<{ projects: IndexedProject[]; total: number; gaps: string[] }> {
   const all = await loadAllProjects(AS);
   const slice = all.slice(offset, offset + limit);
-  const [schemes, roleNames] = await Promise.all([loadAllSchemes(AS), loadRoleNames(AS)]);
+  const [schemes, roleNames, levelMembers] = await Promise.all([
+    loadAllSchemes(AS), loadRoleNames(AS),
+    paginate<{ holder: Parameters<typeof toHolder>[0] }>((s) => route`/rest/api/3/issuesecurityschemes/level/member?expand=all&startAt=${s}&maxResults=50`, { as: AS, maxItems: 20000 }),
+  ]);
+  const levelRoleIds = levelMembers.map((m) => toHolder(m.holder)).filter((h) => h.type === 'projectRole').map((h) => h.value ?? h.parameter ?? '');
+  const gaps: string[] = [];
   const done = await mapPool(slice, 8, async (p): Promise<IndexedProject> => {
-    const ref = await jira<{ id: number }>(route`/rest/api/3/project/${p.key}/permissionscheme`, { as: AS, allow: [404, 403] });
+    const ref = await jira<{ id: number }>(route`/rest/api/3/project/${p.key}/permissionscheme`, { as: AS, allow: [404, 403, 400] });
+    if (!ref) gaps.push(`permission scheme of project ${p.key} not readable by the app`);
     const scheme = ref ? schemes[String(ref.id)] : undefined;
-    const roleIds = [...new Set((scheme?.grants ?? []).filter((g) => g.holder.type === 'projectRole').map((g) => g.holder.value ?? g.holder.parameter ?? ''))]
+    const roleIds = [...new Set([...(scheme?.grants ?? []).filter((g) => g.holder.type === 'projectRole').map((g) => g.holder.value ?? g.holder.parameter ?? ''), ...levelRoleIds])]
       .filter((id) => id && !/^atlassian-addons/i.test(roleNames[id] ?? ''));
     const actors = await Promise.all(roleIds.map((id) => loadRoleActors(p.key, id, roleNames[id] ?? id, AS)));
-    return { id: p.id, key: p.key, name: p.name, style: p.style ?? 'classic', schemeId: ref?.id ?? null, roles: Object.fromEntries(actors.map((a) => [a.id, a])), securityLevels: [] };
-  }, deadlineMs);
-  const projects = done.results.filter((x): x is IndexedProject => !!x);
-  return { projects, total: all.length, done: offset + limit >= all.length && !done.timedOut };
+    return { id: p.id, key: p.key, name: p.name, style: p.style ?? 'classic', schemeId: ref?.id ?? null, roles: Object.fromEntries(actors.filter((a) => a.groups.length || a.userIds.length).map((a) => [a.id, a])), securityLevels: [] };
+  });
+  return { projects: done.results.filter((x): x is IndexedProject => !!x), total: all.length, gaps };
 }
 
 export async function collectPermissionSchemes(projects: IndexedProject[]): Promise<{ schemes: SchemeUse[]; grants: GrantRef[]; schemeGroupRefs: Array<{ group: string; ref: string }> }> {
@@ -79,26 +88,28 @@ export async function collectSecuritySchemes(): Promise<{ schemes: SchemeUse[]; 
   return { schemes, groupRefs };
 }
 
-export async function collectWorkflowSchemes(projectIds: string[]): Promise<SchemeUse[]> {
+export async function collectWorkflowSchemes(projectIds: string[]): Promise<{ schemes: SchemeUse[]; gaps: string[] }> {
   const schemes = await paginate<{ id: number; name: string }>((s) => route`/rest/api/3/workflowscheme?startAt=${s}&maxResults=50`, { as: AS });
   const used = new Map<string, string[]>();
+  const gaps: string[] = [];
   for (let i = 0; i < projectIds.length; i += 50) {
     const batch = projectIds.slice(i, i + 50);
     const query = new URLSearchParams(batch.map((id): [string, string] => ['projectId', id]));
     const r = await jira<{ values: Array<{ projectIds: string[]; workflowScheme: { id?: number; name: string } }> }>(
       route`/rest/api/3/workflowscheme/project?${query}`, { as: AS, allow: [400] });
+    if (!r) gaps.push(`workflow scheme associations for ${batch.length} project(s) not readable`);
     for (const v of r?.values ?? []) {
       const key = v.workflowScheme.id !== undefined ? String(v.workflowScheme.id) : v.workflowScheme.name;
       used.set(key, [...(used.get(key) ?? []), ...v.projectIds]);
     }
   }
-  return schemes.map((s) => ({ id: String(s.id), name: s.name, projectKeys: used.get(String(s.id)) ?? used.get(s.name) ?? [] }));
+  return { schemes: schemes.map((s) => ({ id: String(s.id), name: s.name, projectKeys: used.get(String(s.id)) ?? used.get(s.name) ?? [] })), gaps };
 }
 
 export async function collectWorkflows(): Promise<{ total: number; inactive: Array<{ id: string; name: string }> }> {
   const first = await jiraGet<{ total?: number }>(route`/rest/api/3/workflows/search?maxResults=1`, AS);
-  const inactive = await paginate<{ id: string; name: string; scope?: { type: string } }>((s) => route`/rest/api/3/workflows/search?isActive=false&startAt=${s}&maxResults=50`, { as: AS, maxItems: 20000 });
-  return { total: first.total ?? inactive.length, inactive: inactive.map((w) => ({ id: w.id, name: w.name })) };
+  const inactive = await paginate<{ id: string; name: string; isEditable?: boolean }>((s) => route`/rest/api/3/workflows/search?isActive=false&startAt=${s}&maxResults=50`, { as: AS, maxItems: 20000 });
+  return { total: first.total ?? inactive.length, inactive: inactive.map((w) => ({ id: w.id, name: w.name, ...(w.isEditable !== undefined ? { isEditable: w.isEditable } : {}) })) };
 }
 
 export async function collectScreens(): Promise<{ total: number; unused: Array<{ id: string; name: string }> }> {

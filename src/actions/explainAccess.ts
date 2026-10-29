@@ -15,7 +15,7 @@ export async function siteBaseUrl(): Promise<string> {
   return info.baseUrl;
 }
 
-export async function runExplainAccess(input: { user: string; target: string; permission?: string }, invokingAccountId: string | null): Promise<AccessVerdict & { siteIndex: { complete: boolean; projects: number } | null }> {
+export async function runExplainAccess(input: { user: string; target: string; permission?: string }, invokingAccountId: string | null): Promise<AccessVerdict & { siteIndex: { complete: boolean; projects: number } | null; readAs?: 'user' | 'app' }> {
   const started = Date.now();
   const perm = normalizePermission(input.permission);
   if (!perm.ok) throw new InvalidInputError(perm.error);
@@ -52,8 +52,8 @@ export async function runExplainAccess(input: { user: string; target: string; pe
   const expected = verdict.verdict === 'HAS_ACCESS' ? true : verdict.verdict === 'NO_ACCESS' ? false : undefined;
   const jiraCheck = await jiraPermissionVerdict(subject.accountId, perm.value, { projectId: project.id, ...(loadedIssue ? { issueId: loadedIssue.issue.id } : {}) }, expected);
   verdict = reconcile(verdict, jiraCheck.says, 'POST /rest/api/3/permissions/check', jiraCheck.checks);
-  if (loadedIssue?.readAs === 'app') verdict = { ...verdict, notes: [...verdict.notes, 'You cannot see this issue yourself (security level); it was read with the app\'s access.'] };
-  return { ...verdict, siteIndex };
+  if (loadedIssue?.readAs === 'app') verdict = { ...verdict, notes: [...verdict.notes, 'This issue could not be read with your access (an issue security level you are not in, or a temporary Jira inconsistency); it was read with the app\'s access.'] };
+  return { ...verdict, siteIndex, readAs: loadedIssue?.readAs ?? 'user' };
 }
 
 export const explainAccessAction = defineAction({
@@ -74,5 +74,5 @@ export const explainAccessAction = defineAction({
       throw err;
     }
   },
-  summarize: (v) => `${v.user.displayName} ${v.permission} ${v.issue?.key ?? v.project.key}: ${v.verdict}${v.blockingLayer ? ` (${v.blockingLayer})` : ''}, jira ${v.groundTruthCheck}`,
+  summarize: (v) => `${v.user.displayName} ${v.permission} ${v.issue?.key ?? v.project.key}: ${v.verdict}${v.blockingLayer ? ` (${v.blockingLayer})` : ''}, jira ${v.groundTruthCheck}${v.readAs === 'app' ? ', read as app' : ''}`,
 });

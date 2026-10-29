@@ -38,7 +38,12 @@ export interface ActionSpec<T> {
   summarize: (result: T) => string;
 }
 
-function sourceOf(payload: ActionPayload): AuditRecord['source'] {
+/**
+ * Rovo-platform calls (the Config Doctor agent, or a Rovo Studio agent using our rovo:mcp tools) carry
+ * payload.context.moduleKey = the action key; the two cannot be told apart (verified 2026-10-30), so both
+ * are audited as "rovo". Calls without a Rovo context are labelled "mcp".
+ */
+export function sourceOf(payload: ActionPayload): AuditRecord['source'] {
   return payload.context?.moduleKey ? 'rovo' : 'mcp';
 }
 

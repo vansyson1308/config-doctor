@@ -5,7 +5,7 @@ import { parseChangeType, parseFieldRef, jqlMentionsField } from '../core/change
 import { candidateGroupsAndUsers, impactOfFieldDeletion, impactOfGroupRemoval, impactOfSchemeSwitch, type FieldUsage } from '../core/impact';
 import { parseProjectKey } from '../core/validate';
 import { jira, jiraGet, paginate, route } from '../jira/client';
-import { loadGroupMembers, loadProject, loadProjectScheme, loadRoleNames, namesFrom } from '../jira/loaders';
+import { loadGroupMembersCounted, loadProject, loadProjectScheme, loadRoleNames, namesFrom, toHolder } from '../jira/loaders';
 import { getSiteIndex, loadAllSchemes } from '../jira/siteIndexLoader';
 import { mapPool } from '../util/pool';
 import { InvalidInputError, defineAction } from './runAction';
@@ -25,26 +25,36 @@ async function findGroup(name: string): Promise<GroupRef> {
     : `No group named "${q}".`);
 }
 
+/** Each person's groups AND product access, so product-access grants are decided, not guessed. */
 async function subjectsWithGroups(members: Array<{ accountId: string; displayName: string; active: boolean }>): Promise<SubjectUser[]> {
   const r = await mapPool(members, 6, async (m) => {
-    const groups = await jiraGet<Array<{ name: string; groupId: string }>>(route`/rest/api/3/user/groups?accountId=${m.accountId}`, 'user');
-    return { accountId: m.accountId, displayName: m.displayName, active: m.active, groups: groups.map((g) => ({ id: g.groupId, name: g.name })) };
+    const [groups, user] = await Promise.all([
+      jiraGet<Array<{ name: string; groupId: string }>>(route`/rest/api/3/user/groups?accountId=${m.accountId}`, 'user'),
+      jira<{ applicationRoles?: { items?: Array<{ key: string }> } }>(route`/rest/api/3/user?accountId=${m.accountId}&expand=applicationRoles`, { as: 'user', allow: [404] }),
+    ]);
+    return {
+      accountId: m.accountId, displayName: m.displayName, active: m.active,
+      groups: groups.map((g) => ({ id: g.groupId, name: g.name })),
+      ...(user?.applicationRoles?.items ? { applicationRoles: user.applicationRoles.items.map((x) => x.key) } : {}),
+    };
   });
   return r.results.filter((x): x is SubjectUser => !!x);
 }
 
 async function groupRemoval(target: string, deadline: number) {
   const group = await findGroup(target);
-  const [members, index, roleNames] = await Promise.all([loadGroupMembers(group, 'user', MEMBER_CAP + 1), getSiteIndex('user', deadline), loadRoleNames('user')]);
-  const active = members.filter((m) => m.active);
+  const [counted, index, roleNames] = await Promise.all([loadGroupMembersCounted(group, 'user', 1000), getSiteIndex('user', deadline), loadRoleNames('user')]);
+  const active = counted.members.filter((m) => m.active);
   const subjects = await subjectsWithGroups(active.slice(0, MEMBER_CAP));
+  const truncated = active.length > MEMBER_CAP || counted.total > counted.members.length;
   const allSchemes = Object.values(index.schemes);
   const names = namesFrom({ id: 0, name: '', grants: allSchemes.flatMap((s) => s.grants) }, roleNames, {});
   const report = impactOfGroupRemoval(index, group, subjects, names);
   const notes = [...report.notes];
-  if (active.length > MEMBER_CAP) notes.push(`Group has more than ${MEMBER_CAP} active members; the first ${MEMBER_CAP} were simulated.`);
+  if (truncated) notes.push(`The group has ${counted.total} members (${active.length}+ active); ${subjects.length} were simulated, so the counts are a lower bound.`);
   if (!index.complete) notes.push(`Only ${index.projects.length} of ${index.projectsTotal} projects were analysed (time budget).`);
-  return { ...report, group: { name: group.name, activeMembers: active.length }, notes };
+  const risk = truncated && report.risk === 'low' ? 'medium' : report.risk;
+  return { ...report, risk, group: { name: group.name, members: counted.total, simulated: subjects.length }, notes };
 }
 
 function findScheme(schemes: Record<string, PermissionScheme>, ref: string): PermissionScheme {
@@ -67,16 +77,25 @@ async function schemeSwitch(target: string, newScheme: unknown) {
   if (to.id === from.id) throw new InvalidInputError(`${pk.value} already uses "${to.name}".`);
   const project = await loadProject(pk.value, [...from.grants, ...to.grants].map((g) => g.holder), roleNames, 'user');
   const { groups, userIds } = candidateGroupsAndUsers(project, [from, to]);
-  const memberLists = await mapPool(groups, 6, (g) => loadGroupMembers(g, 'user', MEMBER_CAP));
+  const memberLists = await mapPool(groups, 6, (g) => loadGroupMembersCounted(g, 'user', MEMBER_CAP));
   const people = new Map<string, { accountId: string; displayName: string; active: boolean }>();
-  memberLists.results.flat().forEach((m) => m && people.set(m.accountId, m));
+  let truncated = false;
+  memberLists.results.forEach((r) => {
+    if (!r) return;
+    if (r.total > r.members.length) truncated = true;
+    r.members.forEach((m) => people.set(m.accountId, m));
+  });
   await mapPool(userIds.filter((id) => !people.has(id)), 6, async (id) => {
     const u = await jira<{ accountId: string; displayName: string; active: boolean; accountType?: string }>(route`/rest/api/3/user?accountId=${id}`, { as: 'user', allow: [404] });
     if (u && (u.accountType ?? 'atlassian') === 'atlassian') people.set(id, u);
   });
-  const subjects = await subjectsWithGroups([...people.values()].filter((p) => p.active).slice(0, MEMBER_CAP));
+  const activePeople = [...people.values()].filter((p) => p.active);
+  if (activePeople.length > MEMBER_CAP) truncated = true;
+  const subjects = await subjectsWithGroups(activePeople.slice(0, MEMBER_CAP));
   const names = namesFrom({ id: 0, name: '', grants: [...from.grants, ...to.grants] }, roleNames, {});
-  return impactOfSchemeSwitch(project, from, to, subjects, names);
+  const report = impactOfSchemeSwitch(project, from, to, subjects, names);
+  if (!truncated) return report;
+  return { ...report, risk: report.risk === 'low' ? 'medium' as const : report.risk, notes: [...report.notes, `Only ${subjects.length} people were simulated (large groups); counts are a lower bound.`] };
 }
 
 async function fieldDeletion(target: string) {
@@ -96,11 +115,13 @@ async function fieldDeletion(target: string) {
   }
   const field = exact[0]!;
   const num = field.id.replace('customfield_', '');
-  const [screens, filters, schemes, count] = await Promise.all([
+  const [screens, filters, schemes, count, levelMembers] = await Promise.all([
     paginate<{ name: string }>((s) => route`/rest/api/3/field/${field.id}/screens?startAt=${s}&maxResults=50`, { as: 'user', maxItems: 200 }),
     paginate<{ id: string; name: string; jql?: string }>((s) => route`/rest/api/3/filter/search?expand=jql&overrideSharePermissions=true&startAt=${s}&maxResults=100`, { as: 'user', maxItems: 1000 }),
     loadAllSchemes('user'),
     jira<{ count: number }>(route`/rest/api/3/search/approximate-count`, { method: 'POST', body: { jql: `cf[${num}] is not EMPTY` }, as: 'user', allow: [400] }),
+    paginate<{ issueSecurityLevelId: string; issueSecuritySchemeId: string; holder: Parameters<typeof toHolder>[0] }>(
+      (s) => route`/rest/api/3/issuesecurityschemes/level/member?expand=all&startAt=${s}&maxResults=50`, { as: 'user', maxItems: 5000 }),
   ]);
   const grants = Object.values(schemes).flatMap((s) => s.grants
     .filter((g) => (g.holder.type === 'userCustomField' || g.holder.type === 'groupCustomField') && (g.holder.value ?? g.holder.parameter) === field.id)
@@ -111,25 +132,37 @@ async function fieldDeletion(target: string) {
     contexts: field.contextsCount ?? null,
     filters: filters.filter((f) => f.jql && jqlMentionsField(f.jql, field)).map((f) => `"${f.name}" (id ${f.id})`),
     permissionGrants: grants,
-    securityLevels: [],
+    securityLevels: levelMembers
+      .map((m) => ({ m, h: toHolder(m.holder) }))
+      .filter(({ h }) => (h.type === 'userCustomField' || h.type === 'groupCustomField' || /^(userCF|groupCF)$/i.test(h.type)) && (h.value ?? h.parameter) === field.id)
+      .map(({ m }) => `level ${m.issueSecurityLevelId} (scheme ${m.issueSecuritySchemeId})`),
     issuesWithValue: count?.count ?? null,
     lastUsed: field.lastUsed?.value?.slice(0, 10) ?? field.lastUsed?.type ?? null,
+    extraNotes: [
+      'The issue count is Jira\'s approximate count of issues you can see.',
+      ...(filters.length >= 1000 ? ['Only the first 1000 filters were checked.'] : []),
+    ],
   };
   return { ...impactOfFieldDeletion(usage), usage };
+}
+
+/** Shared by the Rovo action, MCP tool and admin page. */
+export async function runChangeImpact(input: { changeType: unknown; target: unknown; newScheme?: unknown }) {
+  const started = Date.now();
+  const type = parseChangeType(input.changeType);
+  if (!type.ok) throw new InvalidInputError(type.error);
+  const target = typeof input.target === 'string' ? input.target.trim() : '';
+  if (!target) throw new InvalidInputError('target is required: the group name, field name/id, or project key.');
+  const result = type.value === 'remove-group' ? await groupRemoval(target, started + BUDGET_MS)
+    : type.value === 'switch-permission-scheme' ? await schemeSwitch(target, input.newScheme)
+      : await fieldDeletion(target);
+  return { readOnly: 'Simulation only: nothing was changed in Jira.', ...result };
 }
 
 export const changeImpactAction = defineAction({
   key: 'preview-change-impact',
   async run({ payload }) {
-    const started = Date.now();
-    const type = parseChangeType(payload.changeType);
-    if (!type.ok) throw new InvalidInputError(type.error);
-    const target = typeof payload.target === 'string' ? payload.target.trim() : '';
-    if (!target) throw new InvalidInputError('target is required: the group name, field name/id, or project key.');
-    const result = type.value === 'remove-group' ? await groupRemoval(target, started + BUDGET_MS)
-      : type.value === 'switch-permission-scheme' ? await schemeSwitch(target, payload.newScheme)
-        : await fieldDeletion(target);
-    return { readOnly: 'Simulation only: nothing was changed in Jira.', ...result };
+    return runChangeImpact({ changeType: payload.changeType, target: payload.target, newScheme: payload.newScheme });
   },
   summarize: (r) => `${r.change}: risk ${r.risk}; ${r.summary}`.slice(0, 280),
 });

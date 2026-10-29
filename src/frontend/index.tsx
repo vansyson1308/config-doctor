@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import ForgeReconciler, {
   Box, Button, DynamicTable, Form, FormFooter, FormSection, Heading, Inline, Label, LineChart, Lozenge, SectionMessage,
-  Spinner, Stack, Tab, TabList, TabPanel, Tabs, Text, Textfield, useForm,
+  Select, Spinner, Stack, Tab, TabList, TabPanel, Tabs, Text, Textfield, useForm,
 } from '@forge/react';
 import { invoke } from '@forge/bridge';
 
@@ -58,7 +58,12 @@ function Overview({ data, onScan, scanning }: { data: Dashboard; onScan: () => v
           {s.previousScore !== null ? ` · previous score ${s.previousScore}` : ''} · coverage {s.coverage.projectsScanned}/{s.coverage.projectsTotal} projects
         </Text>
       )}
-      {data.scan?.status === 'failed' && <SectionMessage appearance="warning" title="Last scan failed"><Text>{data.scan.error ?? 'unknown error'}</Text></SectionMessage>}
+      {!s && (
+        <SectionMessage appearance="information" title="Getting started">
+          <Text>Click Run scan now to compute the health score (usually 10–60 seconds). Meanwhile, Check access and Impact preview work immediately. With Rovo, open Ask Rovo and pick the Config Doctor agent.</Text>
+        </SectionMessage>
+      )}
+      {data.scan?.status === 'failed' &&<SectionMessage appearance="warning" title="Last scan failed"><Text>{data.scan.error ?? 'unknown error'}</Text></SectionMessage>}
       {data.trend.length > 1 && <LineChart data={data.trend} xAccessor="date" yAccessor="score" colorAccessor="series" title="Health score trend" height={260} />}
       {s && (
         <DynamicTable
@@ -97,8 +102,13 @@ function AccessCheck() {
   const [result, setResult] = useState<ApiResult<Partial<Verdict>> | null>(null);
   const submit = async (v: { user: string; target: string; permission: string }) => {
     setBusy(true);
-    setResult(await call<ApiResult<Partial<Verdict>>>('checkAccess', { ...v }));
-    setBusy(false);
+    try {
+      setResult(await call<ApiResult<Partial<Verdict>>>('checkAccess', { ...v }));
+    } catch (err) {
+      setResult({ ok: false, error: { kind: 'error', message: err instanceof Error ? err.message : 'Request failed' } });
+    } finally {
+      setBusy(false);
+    }
   };
   const v = result?.ok ? (result as unknown as Verdict) : null;
   return (
@@ -146,11 +156,125 @@ function AccessCheck() {
   );
 }
 
+interface Viewers {
+  issue: { key: string; securityLevel: string | null }; viewerCount: number;
+  viewers: Array<{ displayName: string; paths: string[] }>;
+  groundTruth: { check: string; jiraCount?: number; onlyJiraSees?: string[]; onlyModelSees?: string[] };
+  notes: string[];
+}
+
+// Text inputs use useForm/register (uncontrolled): controlled value/onChange races across the UI Kit bridge.
+function WhoCanSee() {
+  const { handleSubmit, register, getFieldId } = useForm<{ issueKey: string }>();
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<ApiResult<Partial<Viewers>> | null>(null);
+  const run = async (v: { issueKey: string }) => {
+    setBusy(true);
+    try {
+      setResult(await call<ApiResult<Partial<Viewers>>>('whoCanSee', { issueKey: v.issueKey }));
+    } catch (err) {
+      setResult({ ok: false, error: { kind: 'error', message: err instanceof Error ? err.message : 'Request failed' } });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const v = result?.ok ? (result as unknown as Viewers) : null;
+  return (
+    <Stack space="space.150">
+      <Heading size="small">Who can see an issue?</Heading>
+      <Form onSubmit={handleSubmit(run)}>
+        <FormSection>
+          <Box><Label labelFor={getFieldId('issueKey')}>Issue key</Label><Textfield {...register('issueKey', { required: true })} placeholder="PAY-3" /></Box>
+        </FormSection>
+        <FormFooter align="start"><Button appearance="primary" type="submit" isDisabled={busy}>{busy ? 'Checking…' : 'List viewers'}</Button></FormFooter>
+      </Form>
+      {result && !result.ok && <ErrorBox message={result.error?.message ?? 'Unknown error'} />}
+      {v && (
+        <Stack space="space.100">
+          <Text>{v.viewerCount} viewer(s) of {v.issue.key}{v.issue.securityLevel ? ` (security level "${v.issue.securityLevel}")` : ''} · Jira check: {v.groundTruth.check}</Text>
+          <DynamicTable
+            head={{ cells: [{ key: 'u', content: 'Person' }, { key: 'p', content: 'Access path(s)' }] }}
+            rows={v.viewers.map((x, i) => ({ key: String(i), cells: [{ key: 'u', content: x.displayName }, { key: 'p', content: x.paths.join(' · ') }] }))}
+          />
+          {v.notes.map((n) => <Text key={n}>ℹ️ {n}</Text>)}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
+interface Impact {
+  change: string; risk: Risk; summary: string; references: string[]; notes: string[]; undetermined: string[];
+  projects: Array<{ project: string; loses: Record<string, string[]>; gains: Record<string, string[]>; keepsAccess: Array<{ user: string; via: string }> }>;
+}
+
+const CHANGE_TYPES = [
+  { label: 'Remove a group', value: 'remove-group' },
+  { label: 'Delete a custom field', value: 'delete-field' },
+  { label: "Switch a project's permission scheme", value: 'switch-permission-scheme' },
+];
+
+function ImpactPreview() {
+  const { handleSubmit, register, getFieldId } = useForm<{ target: string; newScheme: string }>();
+  const [changeType, setChangeType] = useState<{ label: string; value: string }>(CHANGE_TYPES[0]!);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<ApiResult<Partial<Impact>> | null>(null);
+  const isSwitch = changeType.value === 'switch-permission-scheme';
+  const run = async (v: { target: string; newScheme: string }) => {
+    setBusy(true);
+    try {
+      setResult(await call<ApiResult<Partial<Impact>>>('previewImpact', { changeType: changeType.value, target: v.target, ...(isSwitch ? { newScheme: v.newScheme } : {}) }));
+    } catch (err) {
+      setResult({ ok: false, error: { kind: 'error', message: err instanceof Error ? err.message : 'Request failed' } });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const r = result?.ok ? (result as unknown as Impact) : null;
+  return (
+    <Stack space="space.200">
+      <Text>Simulate a change before you make it. Read-only: nothing is changed in Jira.</Text>
+      <Form onSubmit={handleSubmit(run)}>
+        <FormSection>
+          <Inline space="space.200" shouldWrap>
+            <Box><Label labelFor="imp-type">Change</Label><Select inputId="imp-type" options={CHANGE_TYPES} defaultValue={CHANGE_TYPES[0]} onChange={(o: { label: string; value: string }) => setChangeType(o)} /></Box>
+            <Box><Label labelFor={getFieldId('target')}>{changeType.value === 'remove-group' ? 'Group name' : changeType.value === 'delete-field' ? 'Field name or id' : 'Project key'}</Label><Textfield {...register('target', { required: true })} /></Box>
+            {isSwitch && <Box><Label labelFor={getFieldId('newScheme')}>New permission scheme</Label><Textfield {...register('newScheme')} /></Box>}
+          </Inline>
+        </FormSection>
+        <FormFooter align="start"><Button appearance="primary" type="submit" isDisabled={busy}>{busy ? 'Simulating…' : 'Preview impact'}</Button></FormFooter>
+      </Form>
+      {result && !result.ok && <ErrorBox message={result.error?.message ?? 'Unknown error'} />}
+      {r && (
+        <Stack space="space.150">
+          <Inline space="space.100" alignBlock="center"><Text>{r.change}</Text>{riskLozenge(r.risk)}</Inline>
+          <Text>{r.summary}</Text>
+          {r.projects.length > 0 && (
+            <DynamicTable
+              head={{ cells: [{ key: 'p', content: 'Project' }, { key: 'l', content: 'Would lose' }, { key: 'g', content: 'Would gain' }, { key: 'k', content: 'Keeps access via' }] }}
+              rows={r.projects.map((p) => ({ key: p.project, cells: [
+                { key: 'p', content: p.project },
+                { key: 'l', content: Object.entries(p.loses).map(([perm, who]) => `${perm}: ${who.join(', ')}`).join(' · ') || '—' },
+                { key: 'g', content: Object.entries(p.gains).map(([perm, who]) => `${perm}: ${who.join(', ')}`).join(' · ') || '—' },
+                { key: 'k', content: p.keepsAccess.map((k) => `${k.user} (${k.via})`).join(' · ') || '—' },
+              ] }))}
+            />
+          )}
+          {r.references.length > 0 && <Text>References: {r.references.join(' · ')}</Text>}
+          {r.notes.map((n) => <Text key={n}>ℹ️ {n}</Text>)}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
 function AuditLog() {
   const [rows, setRows] = useState<AuditRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(() => {
-    void call<ApiResult<{ records: AuditRecord[] }>>('getAudit').then((r) => (r.ok ? setRows(r.records) : setError(r.error?.message ?? 'error')));
+    void call<ApiResult<{ records: AuditRecord[] }>>('getAudit')
+      .then((r) => (r.ok ? setRows(r.records) : setError(r.error?.message ?? 'error')))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Request failed'));
   }, []);
   useEffect(load, [load]);
   if (error) return <ErrorBox message={error} />;
@@ -179,7 +303,14 @@ function AuditLog() {
 function App() {
   const [data, setData] = useState<ApiResult<Dashboard> | null>(null);
   const [scanning, setScanning] = useState(false);
-  const load = useCallback(async () => setData(await call<ApiResult<Dashboard>>('getDashboard')), []);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try {
+      setData(await call<ApiResult<Dashboard>>('getDashboard'));
+    } catch (err) {
+      setData({ ok: false, error: { kind: 'error', message: err instanceof Error ? err.message : 'Request failed' } } as ApiResult<Dashboard>);
+    }
+  }, []);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     if (data?.ok && data.scan?.status === 'running') {
@@ -190,25 +321,35 @@ function App() {
   }, [data, load]);
   const onScan = async () => {
     setScanning(true);
-    await call('runScan');
-    await load();
-    setScanning(false);
+    setScanError(null);
+    try {
+      const r = await call<ApiResult<{ started: boolean }>>('runScan');
+      if (!r.ok) setScanError(r.error?.message ?? 'Could not start the scan');
+      await load();
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : 'Could not start the scan');
+    } finally {
+      setScanning(false);
+    }
   };
   if (!data) return <Spinner label="Loading Config Doctor" />;
   if (!data.ok) return <ErrorBox message={data.error?.message ?? 'Unknown error'} />;
   return (
     <Stack space="space.300">
       <Text>Deterministic, auditable diagnostics for Jira access and configuration. Read-only: Config Doctor never changes your configuration.</Text>
+      {scanError && <ErrorBox message={scanError} />}
       <Tabs id="config-doctor-tabs">
         <TabList>
           <Tab>Overview</Tab>
           <Tab>Findings ({data.findings.length})</Tab>
           <Tab>Check access</Tab>
+          <Tab>Impact preview</Tab>
           <Tab>Audit log</Tab>
         </TabList>
         <TabPanel><Box paddingBlock="space.200"><Overview data={data} onScan={onScan} scanning={scanning} /></Box></TabPanel>
         <TabPanel><Box paddingBlock="space.200"><Findings findings={data.findings} /></Box></TabPanel>
-        <TabPanel><Box paddingBlock="space.200"><AccessCheck /></Box></TabPanel>
+        <TabPanel><Box paddingBlock="space.200"><Stack space="space.400"><AccessCheck /><WhoCanSee /></Stack></Box></TabPanel>
+        <TabPanel><Box paddingBlock="space.200"><ImpactPreview /></Box></TabPanel>
         <TabPanel><Box paddingBlock="space.200"><AuditLog /></Box></TabPanel>
       </Tabs>
     </Stack>

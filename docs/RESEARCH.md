@@ -116,6 +116,22 @@ scanner records how many projects it could see, so coverage gaps are reported ra
 - New permission schemes get automatic grants for roles `atlassian-addons-project-access` and
   `jira-guest-member`; Forge app accounts (accountType `app`) are actors of the addons role.
 
+### Verified in M3–M5 (2026-10-30)
+- **Rovo shows its own confirmation card for `actionVerb: CREATE` actions** ("Please review … Confirm selected /
+  Cancel") before invoking them; the action ran only after the click (demo site, create-cleanup-plan).
+- **Team-managed projects** return a "Simplified Permission Scheme" from `GET /project/{key}/permissionscheme`
+  (scoped project roles + `applicationRole` with empty parameter for open access), so the same evaluator applies.
+- `rovo:mcp` tools appear in Rovo Studio → Create agent → Tools → Add tools → *config-doctor* (5 tools) and run
+  with `payload.context = { cloudId, moduleKey: <action key>, userAccess }`, identical in shape to native-agent
+  calls, so audit source cannot distinguish them (both recorded as "rovo").
+- Async-event latency ≈ 15–30 s per event; chaining steps in one consumer invocation cut a full scan from 198 s to 10–13 s.
+- Interactive site index on the demo site is ~374 KB (> one KVS value); cache values are now chunked.
+- A brand-new site (configdoctor.atlassian.net, 0 projects) exposes product-provisioned fields (JSM "Approvers",
+  "Impact", …, Jira Software/Plans/Forms types) and product-access groups; these are treated as managed, not sprawl.
+- `POST /permissions/check` and `/mypermissions` are eventually consistent after changes (see M2); `search/jql`
+  intermittently 404s on fresh data.
+
 ## Still UNVERIFIED
-- [ ] Whether asApp sees every project when a project's permission scheme omits the app's role (check on seeded data in M1/M3).
+- [~] Whether asApp sees every project when a project's permission scheme omits the app's role. Mitigated, not verified: the scan records
+  coverage gaps (403/400) and withholds unused-scheme advice; run-sprawl-audit compares the admin's visible project count with the scan's.
 - [ ] Jira event keys for configuration changes (only needed if F4 adds event-driven rescans).

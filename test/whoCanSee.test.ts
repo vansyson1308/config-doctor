@@ -71,3 +71,15 @@ describe('whoCanSee', () => {
     expect(r.viewers.map((v) => v.displayName)).toEqual(['Kevin Campbell', 'Sơn Owner']);
   });
 });
+
+describe('review fix: partial ground truth', () => {
+  it('reports PARTIAL (not AGREES) when Jira was only asked about some candidates', () => {
+    const r = whoCanSee(input({ issue: issues.internal, jiraUsers: [kevin, owner], jiraListTruncated: true }));
+    expect(r.groundTruth.check).toBe('PARTIAL');
+  });
+  it('does not invent a viewer count for broad grants on secured issues', () => {
+    const scheme = { ...paymentsScheme, grants: [...paymentsScheme.grants, { permission: 'BROWSE_PROJECTS', holder: { type: 'anyone' } }] };
+    const r = whoCanSee(input({ scheme, issue: issues.internal }));
+    expect(r.holders.find((h) => h.members === 'everyone')?.afterSecurity).toBe('unknown');
+  });
+});

@@ -253,12 +253,20 @@ export async function projectBrowseCandidates(projectKey: string, cap = 200): Pr
  * Jira's per-user answer for each candidate (bounded); used as ground truth for who-can-see.
  * Answers that differ from the model's expectation are re-checked (majority of 3), as in explain-access.
  */
-export async function jiraViewersAmong(candidates: Member[], target: { issueId: string; projectId: string }, expectedViewers: Set<string>, cap = 60): Promise<{ users: Member[]; truncated: boolean } | undefined> {
+export async function jiraViewersAmong(candidates: Member[], target: { issueId: string; projectId: string }, expectedViewers: Set<string>, deadlineMs: number, cap = 60): Promise<{ users: Member[]; truncated: boolean; checked: number } | undefined> {
   const active = candidates.filter((c) => c.active);
   const list = active.slice(0, cap);
-  const answers = await mapPool(list, 6, async (c) => (await jiraPermissionVerdict(c.accountId, 'BROWSE_PROJECTS', target, expectedViewers.has(c.accountId))).says);
-  if (answers.results.some((a) => a === undefined)) return undefined;
-  return { users: list.filter((_, i) => answers.results[i] === true), truncated: active.length > cap };
+  const answers = await mapPool(list, 6, async (c) => (await jiraPermissionVerdict(c.accountId, 'BROWSE_PROJECTS', target, expectedViewers.has(c.accountId))).says, deadlineMs);
+  if (answers.results.some((a, i) => a === undefined && i < answers.completed)) return undefined;
+  const checked = answers.results.filter((a) => a !== undefined).length;
+  return { users: list.filter((_, i) => answers.results[i] === true), truncated: active.length > checked, checked };
+}
+
+/** Members (capped) plus Jira's total, so callers can say when a list was truncated. */
+export async function loadGroupMembersCounted(group: GroupRef, as: Principal, cap = 500): Promise<{ members: Member[]; total: number }> {
+  const first = await jiraGet<{ total?: number }>(route`/rest/api/3/group/member?groupId=${group.id}&includeInactiveUsers=true&maxResults=1`, as);
+  const members = await loadGroupMembers(group, as, cap);
+  return { members, total: first.total ?? members.length };
 }
 
 export async function loadGroupMembers(group: GroupRef, as: Principal, cap = 500): Promise<Member[]> {

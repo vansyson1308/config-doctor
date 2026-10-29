@@ -28,7 +28,7 @@ export interface WhoCanSeeInput {
 export interface HolderSummary {
   holder: string;
   members: number | 'everyone';
-  afterSecurity: number | 'everyone';
+  afterSecurity: number | 'everyone' | 'unknown';
 }
 
 export interface Viewer {
@@ -46,7 +46,7 @@ export interface WhoCanSeeResult {
   viewerCount: number;
   broadGrants: string[];
   groundTruth: {
-    check: 'AGREES' | 'DISAGREES' | 'UNAVAILABLE';
+    check: 'AGREES' | 'DISAGREES' | 'PARTIAL' | 'UNAVAILABLE';
     jiraCount?: number;
     onlyJiraSees?: string[];
     onlyModelSees?: string[];
@@ -140,7 +140,7 @@ export function whoCanSee(input: WhoCanSeeInput): WhoCanSeeResult {
     const label = describeHolder(g.holder, input);
     if (BROAD.has(g.holder.type)) {
       broad.push(label);
-      holders.push({ holder: label, members: 'everyone', afterSecurity: input.issue.securityLevel ? 0 : 'everyone' });
+      holders.push({ holder: label, members: 'everyone', afterSecurity: input.issue.securityLevel ? 'unknown' : 'everyone' });
       continue;
     }
     if (/atlassian-addons/i.test(label)) continue; // app access role: not people
@@ -187,7 +187,8 @@ function compareWithJira(model: Viewer[], input: WhoCanSeeInput): WhoCanSeeResul
   const onlyModel = input.jiraListTruncated ? [] : model.filter((v) => !jiraIds.has(v.accountId)).map((v) => v.displayName);
   const agrees = onlyJira.length === 0 && onlyModel.length === 0;
   return {
-    check: agrees ? 'AGREES' : 'DISAGREES',
+    // A capped check can only ever confirm part of the list.
+    check: !agrees ? 'DISAGREES' : input.jiraListTruncated ? 'PARTIAL' : 'AGREES',
     jiraCount: humans.length,
     ...(onlyJira.length ? { onlyJiraSees: onlyJira.slice(0, 25) } : {}),
     ...(onlyModel.length ? { onlyModelSees: onlyModel.slice(0, 25) } : {}),

@@ -17,3 +17,9 @@ describe('normalizePermission', () => {
     expect(normalizePermission(5).ok).toBe(false);
   });
 });
+
+describe('review fix: no first-word guessing', () => {
+  it.each(['edit comments', 'delete comments', 'close sprint'])('%s is rejected', (raw) => {
+    expect(normalizePermission(raw).ok).toBe(false);
+  });
+});

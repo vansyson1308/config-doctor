@@ -1,7 +1,11 @@
 // Backend for the Jira admin page (F5). Every call is admin-gated and audited (source "admin-page"),
 // exactly like the Rovo actions; the page works even on sites where Rovo is not active.
 import Resolver from '@forge/resolver';
+import { runChangeImpact } from '../actions/changeImpact';
 import { runExplainAccess } from '../actions/explainAccess';
+import { parseIssueKey } from '../core/validate';
+import { InvalidInputError } from '../actions/runAction';
+import { runWhoCanSee } from '../actions/whoCanSee';
 import { runAudited } from '../actions/runAction';
 import { summarizeSnapshot } from '../actions/sprawlAudit';
 import { getScanState, isRunning, startScan, STEPS } from '../scan/job';
@@ -52,6 +56,22 @@ resolver.define('checkAccess', async (req: Req) => runAudited({
     ...(typeof req.payload?.permission === 'string' && req.payload.permission ? { permission: req.payload.permission } : {}),
   }, account(req)),
   summarize: (v) => `${v.user.displayName} ${v.permission} ${v.issue?.key ?? v.project.key}: ${v.verdict}`,
+}));
+
+resolver.define('whoCanSee', async (req: Req) => runAudited({
+  key: 'list-who-can-see', source: 'admin-page', accountId: account(req), inputs: req.payload ?? {},
+  run: async () => {
+    const key = parseIssueKey(req.payload?.issueKey);
+    if (!key.ok) throw new InvalidInputError(key.error);
+    return runWhoCanSee(key.value);
+  },
+  summarize: (r) => `${r.issue.key}: ${r.viewerCount} viewers, jira ${r.groundTruth.check}`,
+}));
+
+resolver.define('previewImpact', async (req: Req) => runAudited({
+  key: 'preview-change-impact', source: 'admin-page', accountId: account(req), inputs: req.payload ?? {},
+  run: async () => runChangeImpact({ changeType: req.payload?.changeType, target: req.payload?.target, newScheme: req.payload?.newScheme }),
+  summarize: (r) => `${r.change}: risk ${r.risk}; ${r.summary}`.slice(0, 280),
 }));
 
 export const adminResolver = resolver.getDefinitions();

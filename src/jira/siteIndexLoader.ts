@@ -54,7 +54,10 @@ function roleIds(holders: Holder[], roleNames: Record<string, string>): string[]
 }
 
 export async function buildSiteIndex(as: Principal, deadlineMs: number): Promise<LoadedIndex> {
-  const [projects, schemes, roleNames] = await Promise.all([loadAllProjects(as), loadAllSchemes(as), loadRoleNames(as)]);
+  const [projects, schemes, roleNames, appRoles] = await Promise.all([
+    loadAllProjects(as), loadAllSchemes(as), loadRoleNames(as),
+    jiraGet<Array<{ groups?: string[]; defaultGroups?: string[] }>>(route`/rest/api/3/applicationrole`, as),
+  ]);
   const secMemo = new Map<string, Promise<SecurityLevel[]>>();
   const done = await mapPool(projects, 8, async (p): Promise<IndexedProject> => {
     const ref = await jira<{ id: number }>(route`/rest/api/3/project/${p.key}/permissionscheme`, { as, allow: [404, 403] });
@@ -70,6 +73,7 @@ export async function buildSiteIndex(as: Principal, deadlineMs: number): Promise
     projects: indexed,
     schemes,
     groupSizes: {},
+    productAccessGroups: [...new Set(appRoles.flatMap((r) => [...(r.groups ?? []), ...(r.defaultGroups ?? [])]))],
     complete: !done.timedOut && indexed.length === projects.length,
     projectsTotal: projects.length,
     readAs: as,
@@ -79,7 +83,8 @@ export async function buildSiteIndex(as: Principal, deadlineMs: number): Promise
 /** Cached index (≤ maxAgeMinutes old) or a fresh build within the deadline. */
 export async function getSiteIndex(as: Principal, deadlineMs: number, maxAgeMinutes = 60): Promise<LoadedIndex> {
   const cached = await cacheGet<LoadedIndex>(CACHE_KEY);
-  if (cached && cached.complete && Date.now() - Date.parse(cached.builtAt) < maxAgeMinutes * 60_000) return cached;
+  // An index built by the app (weekly scan) may miss projects the admin can see: reuse same-principal only.
+  if (cached && cached.complete && cached.readAs === as && Date.now() - Date.parse(cached.builtAt) < maxAgeMinutes * 60_000) return cached;
   const fresh = await buildSiteIndex(as, deadlineMs);
   if (fresh.complete) await cacheSet(CACHE_KEY, fresh, maxAgeMinutes);
   return fresh;

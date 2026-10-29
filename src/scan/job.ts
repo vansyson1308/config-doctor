@@ -1,5 +1,5 @@
-// Chunked sprawl scan on Forge async events: one queue event per step, progress in KVS.
-// Steps run asApp (no user context); each stays far below the 900 s consumer limit.
+// Chunked sprawl scan on Forge async events, progress in KVS. Steps run asApp (no user context);
+// consecutive steps share one invocation for up to SLICE_MS, well below the 600 s consumer timeout.
 import { Queue } from '@forge/events';
 import { kvs } from '@forge/kvs';
 import type { IndexedProject } from '../core/siteIndex';
@@ -28,6 +28,8 @@ export interface ScanState {
   step: Step;
   stepIndex: number;
   error?: string;
+  /** Updated after every step; a scan with no heartbeat for STALE_AFTER_MS is treated as dead. */
+  heartbeatAt?: string;
 }
 
 interface ScanEvent extends Record<string, unknown> { jobId: string; step: Step; offset?: number }
@@ -37,7 +39,8 @@ const STATE_KEY = 'scan:state';
 const PART_TTL = { value: 2, unit: 'DAYS' } as const;
 const GROUP_CHUNK = 150;
 const PROJECT_CHUNK = 60;
-const STUCK_AFTER_MS = 30 * 60_000;
+const STALE_AFTER_MS = 12 * 60_000; // > 600 s consumer timeout + queue latency
+const PART_CHUNK_CHARS = 180_000;
 
 const partKey = (id: string, name: string) => `scanpart:${id}:${name}`;
 
@@ -46,7 +49,7 @@ export async function getScanState(): Promise<ScanState | undefined> {
 }
 
 export function isRunning(s: ScanState | undefined, now = Date.now()): boolean {
-  return !!s && s.status === 'running' && now - Date.parse(s.startedAt) < STUCK_AFTER_MS;
+  return !!s && s.status === 'running' && now - Date.parse(s.heartbeatAt ?? s.startedAt) < STALE_AFTER_MS;
 }
 
 async function push(body: ScanEvent): Promise<void> {
@@ -57,35 +60,44 @@ async function push(body: ScanEvent): Promise<void> {
 export async function startScan(trigger: ScanState['trigger'], requestedBy: string | null): Promise<{ state: ScanState; started: boolean }> {
   const current = await getScanState();
   if (isRunning(current)) return { state: current!, started: false };
-  const state: ScanState = { id: `scan-${Date.now()}`, status: 'running', trigger, requestedBy, startedAt: new Date().toISOString(), step: 'fields', stepIndex: 0 };
+  const now = new Date().toISOString();
+  const state: ScanState = { id: `scan-${Date.now()}`, status: 'running', trigger, requestedBy, startedAt: now, heartbeatAt: now, step: 'fields', stepIndex: 0 };
   await kvs.set(STATE_KEY, state);
   await push({ jobId: state.id, step: 'fields' });
   return { state, started: true };
 }
 
+/** Parts are stored as JSON split into ≤180 KB string chunks, so large sites never hit the KVS value limit. */
 async function savePart<T>(jobId: string, name: string, value: T): Promise<void> {
-  await kvs.set(partKey(jobId, name), value, { ttl: PART_TTL });
+  const json = JSON.stringify(value);
+  const chunks = Math.max(1, Math.ceil(json.length / PART_CHUNK_CHARS));
+  for (let i = 0; i < chunks; i++) {
+    await kvs.set(partKey(jobId, `${name}#${i}`), json.slice(i * PART_CHUNK_CHARS, (i + 1) * PART_CHUNK_CHARS), { ttl: PART_TTL });
+  }
+  await kvs.set(partKey(jobId, name), { chunks }, { ttl: PART_TTL });
 }
 
 async function readPart<T>(jobId: string, name: string): Promise<T> {
-  const v = await kvs.get<T>(partKey(jobId, name));
-  if (v === undefined) throw new Error(`scan part ${name} missing`);
-  return v;
+  const meta = await kvs.get<{ chunks: number }>(partKey(jobId, name));
+  if (meta === undefined) throw new Error(`scan part ${name} missing`);
+  let json = '';
+  for (let i = 0; i < meta.chunks; i++) json += (await kvs.get<string>(partKey(jobId, `${name}#${i}`))) ?? '';
+  return JSON.parse(json) as T;
 }
 
 async function readChunks<T>(jobId: string, name: string): Promise<T[]> {
   const out: T[] = [];
   for (let i = 0; ; i++) {
-    const v = await kvs.get<T[]>(partKey(jobId, `${name}:${i}`));
-    if (v === undefined) return out;
-    out.push(...v);
+    const meta = await kvs.get<{ chunks: number }>(partKey(jobId, `${name}:${i}`));
+    if (meta === undefined) return out;
+    out.push(...(await readPart<T[]>(jobId, `${name}:${i}`)));
   }
 }
 
 interface Position { step: Step; offset?: number }
 
 async function advance(state: ScanState, next: Step, offset?: number): Promise<Position> {
-  await kvs.set(STATE_KEY, { ...state, step: next, stepIndex: STEPS.indexOf(next) });
+  await kvs.set(STATE_KEY, { ...state, step: next, stepIndex: STEPS.indexOf(next), heartbeatAt: new Date().toISOString() });
   return { step: next, ...(offset !== undefined ? { offset } : {}) };
 }
 
@@ -108,8 +120,9 @@ async function runStep(state: ScanState, step: Step, offset = 0, deadlineMs: num
       return offset + GROUP_CHUNK < groups.length ? advance(state, 'groupCounts', offset + GROUP_CHUNK) : advance(state, 'projects', 0);
     }
     case 'projects': {
-      const r = await collectProjects(offset, PROJECT_CHUNK, deadlineMs);
+      const r = await collectProjects(offset, PROJECT_CHUNK);
       await savePart(id, `projects:${offset / PROJECT_CHUNK}`, r.projects);
+      await savePart(id, `projectGaps:${offset / PROJECT_CHUNK}`, r.gaps);
       if (offset === 0) await savePart(id, 'projectsTotal', r.total);
       return offset + PROJECT_CHUNK < r.total ? advance(state, 'projects', offset + PROJECT_CHUNK) : advance(state, 'permissionSchemes');
     }
@@ -123,7 +136,9 @@ async function runStep(state: ScanState, step: Step, offset = 0, deadlineMs: num
       return advance(state, 'workflowSchemes');
     case 'workflowSchemes': {
       const projects = await readChunks<IndexedProject>(id, 'projects');
-      await savePart(id, 'workflowSchemes', await collectWorkflowSchemes(projects.map((p) => p.id).filter((x): x is string => !!x)));
+      const ws = await collectWorkflowSchemes(projects.map((p) => p.id).filter((x): x is string => !!x));
+      await savePart(id, 'workflowSchemes', ws.schemes);
+      await savePart(id, 'workflowGaps', ws.gaps);
       return advance(state, 'workflows');
     }
     case 'workflows':
@@ -159,12 +174,13 @@ async function finalize(state: ScanState): Promise<void> {
     workflows: await readPart(id, 'workflows'),
     screens: await readPart(id, 'screens'),
     projects: { total: projectsTotal, scanned: projects.length },
+    coverageGaps: [...(await readChunks<string>(id, 'projectGaps')), ...(await readPart<string[]>(id, 'workflowGaps'))],
   };
   const result = audit(data);
   const durationMs = Date.now() - Date.parse(state.startedAt);
   await saveSnapshot({ ...result, meta: { jobId: id, trigger: state.trigger, requestedBy: state.requestedBy, durationMs } });
   // The scan also refreshes the blast-radius index used by explain-access.
-  await storeSiteIndex({ builtAt: data.scannedAt, projects, schemes: await loadAllSchemes('app'), groupSizes: Object.fromEntries(data.groups.filter((g) => g.memberCount !== null).map((g) => [g.id, g.memberCount!])), complete: projects.length === projectsTotal, projectsTotal, readAs: 'app' }, 24 * 60);
+  await storeSiteIndex({ builtAt: data.scannedAt, projects, schemes: await loadAllSchemes('app'), groupSizes: Object.fromEntries(data.groups.filter((g) => g.memberCount !== null).map((g) => [g.id, g.memberCount!])), productAccessGroups: groupsPart.productAccessGroups, complete: result.coverage.complete, projectsTotal, readAs: 'app' }, 24 * 60);
   await kvs.set(STATE_KEY, { ...state, status: 'done', step: 'finalize', stepIndex: STEPS.length - 1, finishedAt: new Date().toISOString() });
   await writeAudit({
     at: state.startedAt, accountId: state.requestedBy, action: 'sprawl-scan', source: state.trigger === 'scheduler' ? 'scheduler' : 'consumer',

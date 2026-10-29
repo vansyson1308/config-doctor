@@ -17,6 +17,8 @@ export interface SiteIndex {
   schemes: Record<string, PermissionScheme>;
   /** Group id → member count (when known). */
   groupSizes: Record<string, number>;
+  /** Group names that grant product access (from /applicationrole), when known. */
+  productAccessGroups?: string[];
 }
 
 export type Risk = 'low' | 'medium' | 'high';
@@ -87,7 +89,10 @@ export function blastRadiusForGroup(index: SiteIndex, group: GroupRef, exclude?:
     }
   }
   const other = grants.filter((g) => g.project !== exclude?.project);
-  const risk = riskOf(other.length, allPerms, index.groupSizes[group.id]);
+  const grantsProductAccess = index.productAccessGroups?.some((n) => n === group.name) ?? false;
+  const adminGroup = /(^|-)(site-)?admin(istrator)?s?($|-)/i.test(group.name);
+  if (grantsProductAccess) levels.push('product access (licence seat)');
+  const risk = grantsProductAccess || adminGroup ? 'high' : riskOf(other.length, allPerms, index.groupSizes[group.id]);
   return {
     grants,
     securityLevels: [...new Set(levels)],

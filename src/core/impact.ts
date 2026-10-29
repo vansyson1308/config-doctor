@@ -23,6 +23,8 @@ export interface ImpactReport {
   summary: string;
   usersLosingBrowse: number;
   usersLosingAnyPermission: number;
+  /** People whose outcome could not be decided from the loaded data (never counted as losses). */
+  undetermined: string[];
   projects: ProjectImpact[];
   references: string[];
   notes: string[];
@@ -32,8 +34,15 @@ function toProjectModel(p: IndexedProject): ProjectModel {
   return { id: p.id ?? p.key, key: p.key, name: p.name, style: p.style, roles: p.roles };
 }
 
+type Tri = 'yes' | 'no' | 'unknown';
+
+function tri(subject: SubjectUser, project: ProjectModel, scheme: PermissionScheme, permission: string, names: NameIndex): Tri {
+  const v = evaluate({ subject, project, scheme, permission, names, baseUrl: '' }).verdict;
+  return v === 'HAS_ACCESS' ? 'yes' : v === 'NO_ACCESS' || v === 'CONDITIONAL' ? 'no' : 'unknown';
+}
+
 function can(subject: SubjectUser, project: ProjectModel, scheme: PermissionScheme, permission: string, names: NameIndex): boolean {
-  return evaluate({ subject, project, scheme, permission, names, baseUrl: '' }).verdict === 'HAS_ACCESS';
+  return tri(subject, project, scheme, permission, names) === 'yes';
 }
 
 function firstPath(subject: SubjectUser, project: ProjectModel, scheme: PermissionScheme, names: NameIndex): string {
@@ -61,6 +70,7 @@ export function impactOfGroupRemoval(index: SiteIndex, group: GroupRef, members:
   const projects: ProjectImpact[] = [];
   const losingBrowse = new Set<string>();
   const losingAny = new Set<string>();
+  const undetermined = new Set<string>();
   let adminLoss = false;
   const references: string[] = [];
   for (const ip of index.projects) {
@@ -77,7 +87,13 @@ export function impactOfGroupRemoval(index: SiteIndex, group: GroupRef, members:
     for (const m of members) {
       const reduced = withoutGroup(m, group);
       for (const perm of KEY_PERMISSIONS) {
-        if (can(m, before, scheme, perm, names) && !can(reduced, after, scheme, perm, names)) {
+        const a = tri(m, before, scheme, perm, names);
+        const b = tri(reduced, after, scheme, perm, names);
+        if (a === 'unknown' || b === 'unknown') {
+          if (a !== b) undetermined.add(m.displayName);
+          continue;
+        }
+        if (a === 'yes' && b === 'no') {
           (impact.loses[perm] ??= []).push(m.displayName);
           losingAny.add(m.accountId);
           if (perm === 'BROWSE_PROJECTS') losingBrowse.add(m.accountId);
@@ -106,9 +122,10 @@ export function impactOfGroupRemoval(index: SiteIndex, group: GroupRef, members:
     summary: `${losingBrowse.size} user(s) would lose Browse in ${affectedProjects.filter((p) => p.loses.BROWSE_PROJECTS).length} project(s); ${losingAny.size} user(s) lose at least one key permission.`,
     usersLosingBrowse: losingBrowse.size,
     usersLosingAnyPermission: losingAny.size,
+    undetermined: [...undetermined].slice(0, SAMPLE),
     projects: projects.map((p) => ({ ...p, loses: Object.fromEntries(Object.entries(p.loses).map(([k, v]) => [k, v.slice(0, SAMPLE)])) })),
     references: [...new Set(references)],
-    notes,
+    notes: undetermined.size ? [...notes, `${undetermined.size} member(s) could not be decided (e.g. product-access grants without loaded product access); they are not counted as losses.`] : notes,
   };
 }
 
@@ -117,11 +134,18 @@ export function impactOfSchemeSwitch(project: ProjectModel, from: PermissionSche
   const impact: ProjectImpact = { project: project.key, loses: {}, gains: {}, keepsAccess: [] };
   const losing = new Set<string>();
   const losingBrowse = new Set<string>();
+  const undetermined = new Set<string>();
   let adminLoss = false;
   for (const c of candidates) {
     for (const perm of KEY_PERMISSIONS) {
-      const a = can(c, project, from, perm, names);
-      const b = can(c, project, to, perm, names);
+      const ta = tri(c, project, from, perm, names);
+      const tb = tri(c, project, to, perm, names);
+      if (ta === 'unknown' || tb === 'unknown') {
+        if (ta !== tb) undetermined.add(c.displayName);
+        continue;
+      }
+      const a = ta === 'yes';
+      const b = tb === 'yes';
       if (a && !b) {
         (impact.loses[perm] ??= []).push(c.displayName);
         losing.add(c.accountId);
@@ -134,6 +158,7 @@ export function impactOfSchemeSwitch(project: ProjectModel, from: PermissionSche
   const gainBrowse = impact.gains.BROWSE_PROJECTS?.length ?? 0;
   const broad = (s: PermissionScheme) => s.grants.some((g) => g.permission === 'BROWSE_PROJECTS' && (g.holder.type === 'anyone' || (g.holder.type === 'applicationRole' && !g.holder.value && !g.holder.parameter)));
   const notes = ['Evaluated for every person reachable through either scheme\'s grants (groups, roles, direct users); reporter/assignee-only access is conditional and not counted.'];
+  if (undetermined.size) notes.push(`${undetermined.size} person(s) could not be decided from the loaded data; they are not counted.`);
   if (broad(to) && !broad(from)) notes.push(`"${to.name}" grants Browse to everyone / any logged-in user: the project would become visible site-wide.`);
   const risk: Risk = adminLoss || losingBrowse.size >= 10 || broad(to) ? 'high' : losingBrowse.size > 0 || gainBrowse > 0 ? 'medium' : 'low';
   return {
@@ -142,6 +167,7 @@ export function impactOfSchemeSwitch(project: ProjectModel, from: PermissionSche
     summary: `${losingBrowse.size} user(s) would lose Browse, ${gainBrowse} would gain it; ${losing.size} lose at least one key permission.`,
     usersLosingBrowse: losingBrowse.size,
     usersLosingAnyPermission: losing.size,
+    undetermined: [...undetermined].slice(0, SAMPLE),
     projects: [{ ...impact, loses: Object.fromEntries(Object.entries(impact.loses).map(([k, v]) => [k, v.slice(0, SAMPLE)])), gains: Object.fromEntries(Object.entries(impact.gains).map(([k, v]) => [k, v.slice(0, SAMPLE)])) }],
     references: [],
     notes,
@@ -157,6 +183,8 @@ export interface FieldUsage {
   securityLevels: string[];
   issuesWithValue: number | null;
   lastUsed: string | null;
+  /** Coverage caveats from the loader (capped filter scan, approximate counts). */
+  extraNotes?: string[];
 }
 
 /** "What if I delete field F?" — pure risk assessment over collected references. */
@@ -171,6 +199,7 @@ export function impactOfFieldDeletion(u: FieldUsage): ImpactReport {
   const hasData = (u.issuesWithValue ?? 0) > 0;
   const risk: Risk = accessCritical || (u.issuesWithValue ?? 0) >= 100 ? 'high' : hasData || u.filters.length > 0 || u.screens.length > 0 ? 'medium' : 'low';
   const notes = [
+    ...(u.extraNotes ?? []),
     'Deleting a custom field moves it to the trash for 60 days; restoring brings data back, but filters and automation that referenced it break while it is trashed.',
     ...(accessCritical ? ['This field drives permissions or issue security: deleting it changes who can access issues.'] : []),
     ...(u.issuesWithValue === null ? ['Issue count unavailable (field not searchable).'] : []),
@@ -181,6 +210,7 @@ export function impactOfFieldDeletion(u: FieldUsage): ImpactReport {
     summary: `${u.issuesWithValue ?? '?'} issue(s) hold a value; on ${u.screens.length} screen(s); in ${u.filters.length} filter(s); ${u.permissionGrants.length + u.securityLevels.length} access rule(s). Last used: ${u.lastUsed ?? 'unknown'}.`,
     usersLosingBrowse: 0,
     usersLosingAnyPermission: 0,
+    undetermined: [],
     projects: [],
     references,
     notes,

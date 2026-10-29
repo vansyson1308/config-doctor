@@ -87,3 +87,17 @@ describe('impactOfFieldDeletion', () => {
     expect(r.references).toContain('grants BROWSE_PROJECTS in "X"');
   });
 });
+
+describe('review fix: unknown is never a loss', () => {
+  it('a product-access grant with unknown product access is undetermined, not "loses Browse"', () => {
+    const scheme = { id: 1, name: 'S', grants: [
+      { permission: 'BROWSE_PROJECTS', holder: { type: 'group', parameter: G.devVn.name, value: G.devVn.id } },
+      { permission: 'BROWSE_PROJECTS', holder: { type: 'applicationRole', parameter: 'jira-software', value: 'jira-software' } },
+    ] };
+    const index = { ...siteIndex, schemes: { '1': scheme }, projects: [{ key: 'X', name: 'X', style: 'classic', schemeId: 1, roles: {}, securityLevels: [] }] };
+    const r = impactOfGroupRemoval(index, G.devVn, [people.cassi], names);
+    expect(r.usersLosingBrowse).toBe(0);
+    expect(r.undetermined).toEqual(['Cassi Owens']);
+    expect(r.notes.join(' ')).toMatch(/could not be decided/);
+  });
+});

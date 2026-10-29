@@ -8,7 +8,7 @@ export interface AuditRecord {
   action: string;
   source: 'rovo' | 'mcp' | 'admin-page' | 'scheduler' | 'consumer';
   inputs: Record<string, unknown>;
-  outcome: 'ok' | 'denied' | 'invalid-input' | 'error';
+  outcome: 'ok' | 'started' | 'denied' | 'invalid-input' | 'error';
   summary: string;
   durationMs: number;
 }
@@ -22,19 +22,42 @@ function auditKey(now: number): string {
   return `${PREFIX}${inverted}:${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Keeps stored inputs small and free of anything that is not a primitive. */
+const MAX_INPUT_KEYS = 12;
+const MAX_INPUTS_BYTES = 2048;
+const SECRET_KEY = /token|secret|password|auth/i;
+
+/**
+ * Keeps stored inputs small, primitive and non-secret, so an oversized or hostile payload can
+ * never make the audit write fail (KVS 240 KiB limit) or store credential-like values.
+ */
 export function sanitizeInputs(inputs: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  let bytes = 0;
   for (const [k, v] of Object.entries(inputs)) {
-    if (k === 'context') continue;
-    if (typeof v === 'string') out[k] = v.slice(0, 200);
-    else if (typeof v === 'number' || typeof v === 'boolean' || v === null) out[k] = v;
+    if (k === 'context' || Object.keys(out).length >= MAX_INPUT_KEYS) continue;
+    const key = k.slice(0, 40);
+    let value: unknown;
+    if (SECRET_KEY.test(key)) value = '[redacted]';
+    else if (typeof v === 'string') value = v.slice(0, 200);
+    else if (typeof v === 'number' || typeof v === 'boolean' || v === null) value = v;
+    else continue;
+    bytes += key.length + JSON.stringify(value).length;
+    if (bytes > MAX_INPUTS_BYTES) break;
+    out[key] = value;
   }
   return out;
 }
 
+/**
+ * Writes one audit record. Denied calls are coalesced per account per minute (the key is
+ * deterministic), so a non-admin cannot flood the log and bury real activity.
+ */
 export async function writeAudit(record: AuditRecord): Promise<void> {
-  await kvs.set(auditKey(Date.parse(record.at)), record, { ttl: RETENTION });
+  const at = Date.parse(record.at);
+  const key = record.outcome === 'denied'
+    ? `${PREFIX}${String(MAX_TS - Math.floor(at / 60_000) * 60_000).padStart(13, '0')}:denied-${(record.accountId ?? 'anon').replace(/[^a-zA-Z0-9:._-]/g, '')}`
+    : auditKey(at);
+  await kvs.set(key, record, { ttl: RETENTION });
 }
 
 export async function readAudit(limit = 50, cursor?: string): Promise<{ records: AuditRecord[]; cursor?: string }> {

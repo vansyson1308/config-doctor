@@ -7,8 +7,12 @@ import { kvs } from '@forge/kvs';
 import { buildCleanupPlan, parseFindingIds, selectFindings, type CleanupPlan } from '../core/cleanupPlan';
 import { parseProjectKey } from '../core/validate';
 import { JiraError, jira, jiraGet, route } from '../jira/client';
+import { writeAudit } from '../storage/audit';
 import { latestSnapshots } from '../storage/snapshots';
 import { InvalidInputError, defineAction } from './runAction';
+
+const MAX_PLANS_PER_HOUR = 3;
+const CREATE_BUDGET_MS = 40_000;
 
 interface PendingPlan { accountId: string; plan: CleanupPlan; createdAt: string }
 
@@ -75,36 +79,62 @@ async function createIssue(fields: Record<string, unknown>): Promise<string> {
   }
 }
 
+/** Atomically swaps the token for a tombstone; only the caller that saw the plan may proceed. */
+async function claimToken(key: string): Promise<PendingPlan | undefined> {
+  const previous = await kvs.set<string, PendingPlan | string>(key, 'used', { keyPolicy: 'OVERRIDE', returnValue: 'PREVIOUS', ttl: TOKEN_TTL });
+  const value = previous?.value;
+  return value && typeof value === 'object' ? value : undefined;
+}
+
+async function underHourlyCap(accountId: string): Promise<boolean> {
+  const hour = Math.floor(Date.now() / 3_600_000);
+  const key = `cleanupcount:${accountId.replace(/[^a-zA-Z0-9:._-]/g, '')}:${hour}`;
+  const used = (await kvs.get<number>(key)) ?? 0;
+  if (used >= MAX_PLANS_PER_HOUR) return false;
+  await kvs.set(key, used + 1, { ttl: { value: 2, unit: 'HOURS' } });
+  return true;
+}
+
 export async function createCleanupPlan(accountId: string, rawToken: unknown) {
   if (typeof rawToken !== 'string' || !/^[0-9a-f-]{36}$/i.test(rawToken.trim())) {
     throw new InvalidInputError('A valid confirmToken from preview-cleanup-plan is required. Run the preview first and confirm with the user.');
   }
   const key = tokenKey(rawToken.trim());
-  const pending = await kvs.get<PendingPlan>(key);
-  if (!pending) throw new InvalidInputError('This confirmation token is unknown or expired (15 minutes). Run preview-cleanup-plan again.');
+  const pending = await claimToken(key); // single use, even under concurrent calls
+  if (!pending) throw new InvalidInputError('This confirmation token is unknown, already used, or expired (15 minutes). Run preview-cleanup-plan again.');
   if (pending.accountId !== accountId) throw new InvalidInputError('This confirmation token was issued to a different user.');
-  await kvs.delete(key); // single use, even if creation fails part-way
+  if (!(await underHourlyCap(accountId))) throw new InvalidInputError(`At most ${MAX_PLANS_PER_HOUR} cleanup plans per hour can be created per admin.`);
   const { plan } = pending;
+  const started = Date.now();
+  // Intent record BEFORE writing: if the invocation dies mid-way, the audit log still shows the attempt.
+  await writeAudit({ at: new Date(started).toISOString(), accountId, action: 'create-cleanup-plan', source: 'rovo', inputs: { project: plan.projectKey, tasks: plan.tasks.length }, outcome: 'started', summary: `creating 1 + ${plan.tasks.length} issues in ${plan.projectKey}`, durationMs: 0 });
   const types = await issueTypes(plan.projectKey);
   const parentType = types.epic ?? types.task;
   const parentKey = await createIssue({ project: { key: plan.projectKey }, issuetype: { id: parentType.id }, summary: plan.epic.summary, description: plan.epic.description, labels: ['config-doctor-cleanup'] });
   const created: string[] = [];
   const failed: Array<{ findingId: string; error: string }> = [];
+  const notCreated: string[] = [];
   for (const t of plan.tasks) {
+    if (Date.now() - started > CREATE_BUDGET_MS) { notCreated.push(t.findingId); continue; }
     const base = { project: { key: plan.projectKey }, issuetype: { id: types.task.id }, summary: t.summary, description: t.description, labels: t.labels };
     try {
       created.push(await createIssue(types.epic ? { ...base, parent: { key: parentKey } } : base));
     } catch (err) {
-      try {
-        created.push(await createIssue(base)); // parent link not allowed in this project: create unlinked
-      } catch (err2) {
-        failed.push({ findingId: t.findingId, error: err2 instanceof JiraError ? `HTTP ${err2.status}` : String(err2) });
+      // Only a rejected parent link (400) is retried unlinked; anything else may have been applied.
+      if (err instanceof JiraError && err.status === 400 && types.epic) {
+        try {
+          created.push(await createIssue(base));
+          continue;
+        } catch (err2) {
+          failed.push({ findingId: t.findingId, error: err2 instanceof JiraError ? `HTTP ${err2.status}` : String(err2) });
+          continue;
+        }
       }
-      void err;
+      failed.push({ findingId: t.findingId, error: err instanceof JiraError ? `HTTP ${err.status}` : String(err) });
     }
   }
   const base = await jiraGet<{ baseUrl: string }>(route`/rest/api/3/serverInfo`);
-  return { container: parentKey, containerUrl: `${base.baseUrl}/browse/${parentKey}`, created, failed };
+  return { container: parentKey, containerUrl: `${base.baseUrl}/browse/${parentKey}`, created, failed, ...(notCreated.length ? { notCreatedTimeBudget: notCreated } : {}) };
 }
 
 export const previewCleanupPlanAction = defineAction({

@@ -42,7 +42,9 @@ export async function jira<T>(path: Route, opts: RequestOptions = {}): Promise<T
       headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
-    if ((res.status === 429 || res.status === 503) && attempt < MAX_ATTEMPTS) {
+    // 429 means "not processed"; 503 on a POST is ambiguous (it may have been applied), so only GETs retry it.
+    const retryable = res.status === 429 || (res.status === 503 && method === 'GET');
+    if (retryable && attempt < MAX_ATTEMPTS) {
       const retryAfter = Number(res.headers.get('Retry-After'));
       const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 500 * 2 ** attempt;
       await sleep(Math.min(waitMs, 8000) + Math.floor(Math.random() * 250));

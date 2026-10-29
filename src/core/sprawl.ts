@@ -4,6 +4,8 @@
 export interface FieldInfo {
   id: string;
   name: string;
+  /** schema.custom, e.g. com.atlassian.jira.plugin.system.customfieldtypes:textfield */
+  customType?: string;
   screensCount?: number;
   contextsCount?: number;
   isLocked?: boolean;
@@ -11,7 +13,7 @@ export interface FieldInfo {
 }
 
 export interface GroupInfo { id: string; name: string; memberCount: number | null }
-export interface SchemeUse { id: string; name: string; projectKeys: string[] }
+export interface SchemeUse { id: string; name: string; projectKeys: string[]; isDefault?: boolean }
 export interface GrantRef { schemeId: string; schemeName: string; permission: string; groupId?: string; groupName?: string }
 
 export interface ConfigData {
@@ -25,9 +27,11 @@ export interface ConfigData {
   permissionSchemes: SchemeUse[];
   securitySchemes: SchemeUse[];
   workflowSchemes: SchemeUse[];
-  workflows: { total: number; inactive: Array<{ id: string; name: string }> };
+  workflows: { total: number; inactive: Array<{ id: string; name: string; isEditable?: boolean }> };
   screens: { total: number; unused: Array<{ id: string; name: string }> };
   projects: { total: number; scanned: number };
+  /** Things the scanner could not see (403/400/skipped); unused-scheme advice is withheld when non-empty. */
+  coverageGaps?: string[];
 }
 
 export type Rule =
@@ -58,11 +62,34 @@ export interface AuditResult {
   findings: Finding[];
   counts: Record<Rule, number>;
   totals: { fields: number; groups: number; permissionSchemes: number; workflowSchemes: number; workflows: number; screens: number; projects: number };
-  coverage: { projectsScanned: number; projectsTotal: number; complete: boolean };
+  coverage: { projectsScanned: number; projectsTotal: number; complete: boolean; gaps: string[] };
+  /** Every finding id (uncapped), for exact "new since last scan" diffs. */
+  allFindingIds: string[];
 }
 
 const STALE_DAYS = 180;
-const SYSTEM_GROUP = /^(site-admins|administrators|jira-administrators|jira-admins.*|jira-software-users.*|jira-servicemanagement-.*|jira-core-users.*|jira-users.*|confluence-.*|atlassian-addons.*|trusted-users.*|system-administrators.*|org-admins.*|.*-user-access-admins-.*|.*-admins-[a-z0-9-]+|statuspage-.*|analytics-.*|assets-.*|rovo-.*|studio-.*)$/i;
+const SMALL_SAMPLE = 20;
+const SYSTEM_GROUP = /^(site-admins|administrators|jira-administrators|jira-admins.*|jira-software-users.*|jira-servicemanagement-.*|jira-servicedesk-.*|jira-core-users.*|jira-users.*|jira-guests-.*|jira-customer-service-.*|jira-product-discovery-.*|jira-work-?management-.*|confluence-.*|atlassian-addons.*|trusted-users.*|system-administrators.*|org-admins.*|.*-user-access-admins-.*|.*-admins-[a-z0-9-]+|statuspage-.*|analytics-.*|assets-.*|rovo-.*|studio-.*|goals-.*|projects-users-.*|townsquare-.*|atlas-.*|focus-.*|compass-.*|loom-.*|talent-.*|bitbucket-.*|opsgenie-.*|trello-.*)$/i;
+
+/** Field types an admin can create; any other type (Jira Software, JSM, Plans, Forms, apps) is product-managed. */
+const GENERIC_FIELD_TYPE = /^com\.atlassian\.jira\.plugin\.system\.customfieldtypes:(textfield|textarea|select|multiselect|radiobuttons|multicheckboxes|cascadingselect|datepicker|datetime|float|userpicker|multiuserpicker|grouppicker|multigrouppicker|labels|url|version|multiversion|project|readonlyfield)$/;
+/** Generic-typed fields that Jira product templates provision on every site (not admin sprawl). */
+const TEMPLATE_FIELDS = new Set(['approvers', 'impact', 'urgency', 'change type', 'change risk', 'change reason', 'actual start', 'actual end', 'incident manager', 'pending reason', 'root cause', 'workaround', 'severity', 'start date', 'flagged', 'affected services', 'product categorization', 'operational categorization', 'responders', 'major incident']);
+/** Jira's built-in screens (Default Screen, Resolve Issue Screen, Workflow Screen). */
+const SYSTEM_SCREEN_IDS = new Set(['1', '2', '3']);
+
+/** True for fields owned by a Jira product, template or app: never recommend trashing these. */
+export function isManagedField(f: FieldInfo): boolean {
+  if (f.isLocked) return true;
+  if (f.customType && !GENERIC_FIELD_TYPE.test(f.customType)) return true;
+  return TEMPLATE_FIELDS.has(f.name.trim().toLowerCase());
+}
+
+/** Jira's default schemes are templates for new projects; being unused is normal. */
+export function isDefaultScheme(s: SchemeUse): boolean {
+  return s.isDefault === true || s.id === '0' || /^default (permission|software|workflow|issue security) scheme$/i.test(s.name.trim());
+}
+
 const DROP_TOKENS = new Set(['old', 'copy', 'new', 'legacy', 'deprecated', 'tmp', 'temp', 'test', 'v1', 'v2', 'v3', 'do', 'not', 'use']);
 const ABBREVIATIONS: Record<string, string> = { cust: 'customer', cx: 'customer', env: 'environment', est: 'estimate', desc: 'description', num: 'number', no: 'number', dept: 'department', mgr: 'manager' };
 
@@ -75,8 +102,13 @@ export function canonicalName(name: string): string {
     .filter(Boolean)
     .map((t) => ABBREVIATIONS[t] ?? t)
     .filter((t) => !DROP_TOKENS.has(t));
-  while (tokens.length > 1 && /^\d+$/.test(tokens[tokens.length - 1]!)) tokens.pop();
   return tokens.join(' ');
+}
+
+/** "cd region 2" → "cd region"; null when there is no trailing number. */
+export function withoutTrailingNumber(key: string): string | null {
+  const m = /^(.*\S)\s+\d+$/.exec(key);
+  return m ? m[1]! : null;
 }
 
 export function isSystemGroup(name: string): boolean {
@@ -102,8 +134,16 @@ export function fieldFindings(fields: FieldInfo[], now: string): Finding[] {
     if (!key) continue;
     clusters.set(key, [...(clusters.get(key) ?? []), f]);
   }
+  // "Region" + "Region 2" are copies; "Approver 1" + "Approver 2" (no plain "Approver") are deliberate.
+  for (const key of [...clusters.keys()]) {
+    const base = withoutTrailingNumber(key);
+    if (base && clusters.has(base)) {
+      clusters.set(base, [...clusters.get(base)!, ...clusters.get(key)!]);
+      clusters.delete(key);
+    }
+  }
   for (const [key, group] of clusters) {
-    if (group.length < 2) continue;
+    if (group.length < 2 || group.every(isManagedField)) continue;
     out.push({
       id: fid('FIELD_DUPLICATE_NAME', key),
       rule: 'FIELD_DUPLICATE_NAME',
@@ -116,7 +156,7 @@ export function fieldFindings(fields: FieldInfo[], now: string): Finding[] {
     });
   }
   for (const f of fields) {
-    if (f.isLocked) continue;
+    if (isManagedField(f)) continue;
     if (f.screensCount === 0) {
       out.push({
         id: fid('FIELD_NOT_ON_SCREEN', f.id), rule: 'FIELD_NOT_ON_SCREEN',
@@ -130,9 +170,9 @@ export function fieldFindings(fields: FieldInfo[], now: string): Finding[] {
     if (f.lastUsed?.type === 'NO_INFORMATION') {
       out.push({
         id: fid('FIELD_NEVER_USED', f.id), rule: 'FIELD_NEVER_USED',
-        title: `Custom field "${f.name}" has never been given a value`,
+        title: `Custom field "${f.name}" has no recorded use`,
         objects: [{ type: 'customField', id: f.id, name: f.name }],
-        evidence: [`${f.id}: lastUsed tracked, no value ever recorded`],
+        evidence: [`${f.id}: Jira tracks this field but reports no last-used date (lastUsed = NO_INFORMATION)`],
         risk: 'low', effort: 'low',
         recommendation: 'Confirm with the field owner, then trash it.',
       });
@@ -181,7 +221,7 @@ export function groupFindings(data: Pick<ConfigData, 'groups' | 'groupReferences
         id: fid('GROUP_UNREFERENCED', g.id), rule: 'GROUP_UNREFERENCED',
         title: `Group "${g.name}" (${g.memberCount ?? '?'} members) is not used by any permission scheme, security level, role or product access`,
         objects: obj,
-        evidence: ['No references in permission schemes, issue security levels, project role actors or product access groups.', 'Not checked: filter/dashboard sharing, global permissions, Confluence.'],
+        evidence: ['No references in permission schemes, issue security levels, project role actors or product access groups.', 'Not checked: filter/dashboard sharing, global permissions, notification schemes, comment/worklog visibility, Confluence.'],
         risk: 'low', effort: 'medium',
         recommendation: 'Check filter/dashboard sharing and global permissions; if unused there too, delete the group.',
       });
@@ -191,7 +231,7 @@ export function groupFindings(data: Pick<ConfigData, 'groups' | 'groupReferences
 }
 
 function unusedSchemeFindings(schemes: SchemeUse[], rule: Rule, label: string): Finding[] {
-  return schemes.filter((s) => s.projectKeys.length === 0).map((s) => ({
+  return schemes.filter((s) => s.projectKeys.length === 0 && !isDefaultScheme(s)).map((s) => ({
     id: fid(rule, s.id), rule,
     title: `${label} "${s.name}" is used by no project`,
     objects: [{ type: label.toLowerCase().replace(/ /g, '-'), id: s.id, name: s.name }],
@@ -203,12 +243,12 @@ function unusedSchemeFindings(schemes: SchemeUse[], rule: Rule, label: string): 
 
 const WEIGHTS: Array<{ category: string; weight: number; rules: Rule[]; total: (d: ConfigData) => number }> = [
   { category: 'Duplicate custom fields', weight: 15, rules: ['FIELD_DUPLICATE_NAME'], total: (d) => d.fields.length },
-  { category: 'Custom fields on no screen', weight: 15, rules: ['FIELD_NOT_ON_SCREEN'], total: (d) => d.fields.length },
-  { category: 'Unused custom fields', weight: 10, rules: ['FIELD_NEVER_USED', 'FIELD_STALE'], total: (d) => d.fields.length },
+  { category: 'Custom fields on no screen', weight: 15, rules: ['FIELD_NOT_ON_SCREEN'], total: (d) => d.fields.filter((f) => !isManagedField(f)).length },
+  { category: 'Unused custom fields', weight: 10, rules: ['FIELD_NEVER_USED', 'FIELD_STALE'], total: (d) => d.fields.filter((f) => !isManagedField(f)).length },
   { category: 'Empty or dead groups', weight: 15, rules: ['GROUP_EMPTY_GRANTED', 'GROUP_EMPTY', 'GROUP_UNREFERENCED'], total: (d) => d.groups.filter((g) => !isSystemGroup(g.name)).length },
-  { category: 'Unused schemes', weight: 15, rules: ['PERMISSION_SCHEME_UNUSED', 'SECURITY_SCHEME_UNUSED', 'WORKFLOW_SCHEME_UNUSED'], total: (d) => d.permissionSchemes.length + d.securitySchemes.length + d.workflowSchemes.length },
+  { category: 'Unused schemes', weight: 15, rules: ['PERMISSION_SCHEME_UNUSED', 'SECURITY_SCHEME_UNUSED', 'WORKFLOW_SCHEME_UNUSED'], total: (d) => [...d.permissionSchemes, ...d.securitySchemes, ...d.workflowSchemes].filter((s) => !isDefaultScheme(s)).length },
   { category: 'Inactive workflows', weight: 15, rules: ['WORKFLOW_INACTIVE'], total: (d) => d.workflows.total },
-  { category: 'Unused screens', weight: 15, rules: ['SCREEN_UNUSED'], total: (d) => d.screens.total },
+  { category: 'Unused screens', weight: 15, rules: ['SCREEN_UNUSED'], total: (d) => Math.max(0, d.screens.total - SYSTEM_SCREEN_IDS.size) },
 ];
 
 /** Affected objects for a category; a duplicate cluster counts every field in it. */
@@ -220,8 +260,10 @@ export function score(findings: Finding[], data: ConfigData): { healthScore: num
   const breakdown = WEIGHTS.map((w) => {
     const total = w.total(data);
     const affected = affectedCount(findings, w.rules);
-    // Ratio scaled so 50% sprawl costs the full category weight.
-    const penalty = total === 0 ? 0 : Math.min(1, (affected / total) * 2) * w.weight;
+    // Ratio scaled so 50% sprawl costs the full category weight; damped for small categories so that
+    // "2 of 2" on a brand-new site does not cost as much as 200 of 400 on a mature one.
+    const confidence = Math.min(1, total / SMALL_SAMPLE);
+    const penalty = total === 0 ? 0 : Math.min(1, (affected / total) * 2) * w.weight * confidence;
     return { category: w.category, weight: w.weight, affected, total, penalty: Math.round(penalty * 10) / 10 };
   });
   const healthScore = Math.max(0, Math.round(100 - breakdown.reduce((s, b) => s + b.penalty, 0)));
@@ -232,21 +274,28 @@ const RANK: Record<Level, number> = { high: 0, medium: 1, low: 2 };
 const MAX_FINDINGS_PER_RULE = 60;
 
 export function audit(data: ConfigData): AuditResult {
+  const gaps = [
+    ...(data.coverageGaps ?? []),
+    ...(data.projects.scanned < data.projects.total ? [`${data.projects.total - data.projects.scanned} project(s) not scanned`] : []),
+  ];
   const findings: Finding[] = [
     ...fieldFindings(data.fields, data.scannedAt),
     ...groupFindings(data),
-    ...unusedSchemeFindings(data.permissionSchemes, 'PERMISSION_SCHEME_UNUSED', 'Permission scheme'),
-    ...unusedSchemeFindings(data.securitySchemes, 'SECURITY_SCHEME_UNUSED', 'Issue security scheme'),
-    ...unusedSchemeFindings(data.workflowSchemes, 'WORKFLOW_SCHEME_UNUSED', 'Workflow scheme'),
-    ...data.workflows.inactive.map((w): Finding => ({
+    // A scheme only looks unused if we saw every project; otherwise the advice could delete a live scheme.
+    ...(gaps.length === 0 ? [
+      ...unusedSchemeFindings(data.permissionSchemes, 'PERMISSION_SCHEME_UNUSED', 'Permission scheme'),
+      ...unusedSchemeFindings(data.securitySchemes, 'SECURITY_SCHEME_UNUSED', 'Issue security scheme'),
+      ...unusedSchemeFindings(data.workflowSchemes, 'WORKFLOW_SCHEME_UNUSED', 'Workflow scheme'),
+    ] : []),
+    ...data.workflows.inactive.filter((w) => w.isEditable !== false).map((w): Finding => ({
       id: fid('WORKFLOW_INACTIVE', w.id), rule: 'WORKFLOW_INACTIVE', title: `Workflow "${w.name}" is inactive`,
       objects: [{ type: 'workflow', id: w.id, name: w.name }], evidence: ['Not used by any active workflow scheme'],
       risk: 'low', effort: 'low', recommendation: 'Delete the inactive workflow (export it first if you want a copy).',
     })),
-    ...data.screens.unused.map((s): Finding => ({
+    ...data.screens.unused.filter((s) => !SYSTEM_SCREEN_IDS.has(s.id)).map((s): Finding => ({
       id: fid('SCREEN_UNUSED', s.id), rule: 'SCREEN_UNUSED', title: `Screen "${s.name}" is in no screen scheme`,
-      objects: [{ type: 'screen', id: s.id, name: s.name }], evidence: ['Not referenced by any screen scheme'],
-      risk: 'low', effort: 'low', recommendation: 'Delete the screen.',
+      objects: [{ type: 'screen', id: s.id, name: s.name }], evidence: ['Not referenced by any screen scheme', 'Not checked: workflow transition screens'],
+      risk: 'low', effort: 'low', recommendation: 'Check that no workflow transition uses it (workflow editor), then delete the screen.',
     })),
   ];
   const counts = Object.fromEntries(['FIELD_DUPLICATE_NAME', 'FIELD_NOT_ON_SCREEN', 'FIELD_NEVER_USED', 'FIELD_STALE', 'GROUP_EMPTY_GRANTED', 'GROUP_EMPTY', 'GROUP_UNREFERENCED', 'PERMISSION_SCHEME_UNUSED', 'SECURITY_SCHEME_UNUSED', 'WORKFLOW_SCHEME_UNUSED', 'WORKFLOW_INACTIVE', 'SCREEN_UNUSED']
@@ -270,7 +319,13 @@ export function audit(data: ConfigData): AuditResult {
       fields: data.fields.length, groups: data.groups.length, permissionSchemes: data.permissionSchemes.length,
       workflowSchemes: data.workflowSchemes.length, workflows: data.workflows.total, screens: data.screens.total, projects: data.projects.total,
     },
-    coverage: { projectsScanned: data.projects.scanned, projectsTotal: data.projects.total, complete: data.projects.scanned === data.projects.total },
+    coverage: {
+      projectsScanned: data.projects.scanned,
+      projectsTotal: data.projects.total,
+      complete: gaps.length === 0,
+      gaps: gaps.length ? [...gaps, 'Unused-scheme findings are withheld until every project can be scanned.'] : [],
+    },
+    allFindingIds: findings.map((f) => f.id),
   };
 }
 

@@ -1,6 +1,7 @@
 // Rovo action `run-sprawl-audit` (F2/F4): returns the latest cached audit, starting a background
 // scan when there is none or it is older than a day. Chat never waits for a full scan.
 import type { Finding } from '../core/sprawl';
+import { jiraGet, route } from '../jira/client';
 import { getScanState, isRunning, startScan, STEPS, type ScanState } from '../scan/job';
 import { latestSnapshots, newFindingIds, trend, type Snapshot } from '../storage/snapshots';
 import { defineAction } from './runAction';
@@ -50,9 +51,13 @@ export async function runSprawlAudit(accountId: string | null, source: ScanState
     current = r.state;
     action = r.started ? 'scan-started' : 'scan-running';
   }
+  // The scan reads as the app; compare with what this admin can see so hidden projects are not silent.
+  const visible = await jiraGet<{ total?: number }>(route`/rest/api/3/project/search?maxResults=1`, 'user').catch(() => ({ total: undefined }));
+  const hiddenFromScan = latest && visible.total !== undefined && visible.total > latest.coverage.projectsTotal ? visible.total - latest.coverage.projectsTotal : 0;
   return {
     action,
     scan: scanStatus(current),
+    ...(hiddenFromScan ? { coverageWarning: `You can see ${visible.total} projects but the scan saw ${latest!.coverage.projectsTotal}; findings about unused schemes may be wrong for ${hiddenFromScan} project(s) the app cannot browse.` } : {}),
     snapshot: latest ? summarizeSnapshot(latest, snaps[1]) : null,
     trend: history.map((h) => ({ scannedAt: h.scannedAt, healthScore: h.healthScore })),
     note: latest

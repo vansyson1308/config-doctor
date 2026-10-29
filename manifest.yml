@@ -19,6 +19,15 @@ modules:
         - preview-change-impact
         - preview-cleanup-plan
         - create-cleanup-plan
+  rovo:mcp:
+    - key: config-doctor-mcp
+      name: Config Doctor
+      tools:
+        - explain-access
+        - list-who-can-see
+        - run-sprawl-audit
+        - list-findings
+        - preview-change-impact
   action:
     - key: ping-jira
       name: Check Config Doctor connection

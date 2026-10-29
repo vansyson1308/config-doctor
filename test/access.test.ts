@@ -224,3 +224,15 @@ describe('reconcile with Jira ground truth', () => {
     expect(base.adminLinks.some((l) => l.includes('EditIssueSecurities'))).toBe(true);
   });
 });
+
+import { blastRadiusForGroup } from '../src/core/siteIndex';
+import { isSystemHolderName } from '../src/core/access';
+
+describe('review fix: dangerous fixes are high risk', () => {
+  it('product-access groups and admin groups are high risk; admin groups are never suggested', () => {
+    expect(blastRadiusForGroup({ ...siteIndex, productAccessGroups: ['cd-staff-hq'] }, G.staff).risk).toBe('high');
+    expect(blastRadiusForGroup(siteIndex, { id: 'x', name: 'payments-admins' }).risk).toBe('high');
+    expect(isSystemHolderName('jira-administrators')).toBe(true);
+    expect(isSystemHolderName('org-admins')).toBe(true);
+  });
+});

@@ -24,7 +24,7 @@ function data(over: Partial<ConfigData> = {}): ConfigData {
 describe('canonicalName', () => {
   it.each([
     ['CD Sprint Goal', 'cd sprint goal'], ['CD Sprint goal', 'cd sprint goal'], ['CD Sprint Goal (old)', 'cd sprint goal'],
-    ['CD Customer tier ', 'cd customer tier'], ['CD Cust. Tier', 'cd customer tier'], ['CD Legacy Region 2', 'cd region'],
+    ['CD Customer tier ', 'cd customer tier'], ['CD Cust. Tier', 'cd customer tier'], ['CD Legacy Region 2', 'cd region 2'],
     ['CD Release train (copy)', 'cd release train'], ['Story Points', 'story points'],
   ])('%s → %s', (name, key) => expect(canonicalName(name)).toBe(key));
 });
@@ -95,10 +95,16 @@ describe('audit', () => {
   });
 
   it('scores a messy site below a clean one and explains the score', () => {
+    const many = data({
+      fields: Array.from({ length: 40 }, (_, i) => f(String(i), `Field ${i}`, i < 20 ? { screensCount: 0 } : {})),
+      screens: { total: 43, unused: Array.from({ length: 20 }, (_, i) => ({ id: String(100 + i), name: `S${i}` })) },
+      workflows: { total: 30, inactive: Array.from({ length: 12 }, (_, i) => ({ id: `w${i}`, name: `W${i}` })) },
+    });
+    expect(audit(many).healthScore).toBeLessThan(80);
     const r = audit(messy);
     const clean = audit(data({ fields: [f('3', 'Team')], groups: [{ id: 'g4', name: 'cd-staff-hq', memberCount: 3 }], groupReferences: { g4: ['x'] }, workflows: { total: 4, inactive: [] }, screens: { total: 10, unused: [] } }));
     expect(clean.healthScore).toBe(100);
-    expect(r.healthScore).toBeLessThan(80);
+    expect(r.healthScore).toBeLessThan(100);
     expect(Math.abs(r.breakdown.reduce((s, b) => s + b.penalty, 0) - (100 - r.healthScore))).toBeLessThanOrEqual(0.5);
     expect(r.breakdown.find((b) => b.category === 'Duplicate custom fields')).toMatchObject({ affected: 2, total: 4 });
   });
@@ -115,7 +121,7 @@ describe('audit', () => {
   });
 
   it('reports incomplete coverage', () => {
-    expect(audit(data({ projects: { total: 10, scanned: 7 } })).coverage).toEqual({ projectsScanned: 7, projectsTotal: 10, complete: false });
+    expect(audit(data({ projects: { total: 10, scanned: 7 } })).coverage).toMatchObject({ projectsScanned: 7, projectsTotal: 10, complete: false });
   });
 });
 
@@ -155,5 +161,72 @@ describe('rulesForCategory / filterFindings', () => {
     const r = audit(data({ fields: [f('1', 'CD Sprint Goal', { screensCount: 0 }), f('2', 'CD Sprint goal'), f('3', 'Other', { screensCount: 0 })] }));
     expect(filterFindings(r.findings, ['FIELD_NOT_ON_SCREEN']).map((x) => x.objects[0]!.id).sort()).toEqual(['1', '3']);
     expect(filterFindings(r.findings, ['FIELD_NOT_ON_SCREEN'], 'sprint').map((x) => x.objects[0]!.id)).toEqual(['1']);
+  });
+});
+
+import { isDefaultScheme, isManagedField } from '../src/core/sprawl';
+
+describe('fresh-site fairness (product defaults are not sprawl)', () => {
+  it('never flags product-managed or template fields as unused / screen-less', () => {
+    const r = audit(data({ fields: [
+      f('1', 'Approvers', { screensCount: 0, lastUsed: { type: 'NO_INFORMATION' }, customType: 'com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker' }),
+      f('2', 'Sprint', { screensCount: 0, customType: 'com.pyxis.greenhopper.jira:gh-sprint' }),
+      f('3', 'My Field', { screensCount: 0, customType: 'com.atlassian.jira.plugin.system.customfieldtypes:textfield' }),
+    ] }));
+    expect(r.findings.map((x) => x.objects[0]!.name)).toEqual(['My Field']);
+    expect(isManagedField({ id: 'x', name: 'Story point estimate', customType: 'com.pyxis.greenhopper.jira:jsw-story-points' })).toBe(true);
+  });
+
+  it('still reports duplicates that involve an admin-created field', () => {
+    const r = audit(data({ fields: [
+      f('1', 'Story Points', { customType: 'com.atlassian.jira.plugin.system.customfieldtypes:float' }),
+      f('2', 'Story points', { customType: 'com.atlassian.jira.plugin.system.customfieldtypes:float' }),
+      f('3', 'Sprint', { customType: 'com.pyxis.greenhopper.jira:gh-sprint' }),
+      f('4', 'Sprint (old)', { customType: 'com.pyxis.greenhopper.jira:gh-sprint' }),
+    ] }));
+    expect(r.counts.FIELD_DUPLICATE_NAME).toBe(1);
+  });
+
+  it('ignores default schemes, system screens and non-editable workflows', () => {
+    const r = audit(data({
+      permissionSchemes: [{ id: '0', name: 'Default Permission Scheme', projectKeys: [] }, { id: '5', name: 'Default software scheme', projectKeys: [] }, { id: '9', name: 'Old', projectKeys: [] }],
+      screens: { total: 4, unused: [{ id: '1', name: 'Default Screen' }, { id: '7', name: 'Mine' }] },
+      workflows: { total: 2, inactive: [{ id: 'jira', name: 'jira', isEditable: false }, { id: 'w', name: 'Copy of jira' }] },
+    }));
+    expect(r.findings.map((x) => x.objects[0]!.name).sort()).toEqual(['Copy of jira', 'Mine', 'Old']);
+    expect(isDefaultScheme({ id: '10000', name: 'Default software scheme', projectKeys: [] })).toBe(true);
+  });
+
+  it('damps penalties for tiny categories (an empty new site is not "sprawling")', () => {
+    const fresh = audit(data({ permissionSchemes: [{ id: '9', name: 'Spare', projectKeys: [] }, { id: '8', name: 'Spare 2', projectKeys: [] }], projects: { total: 0, scanned: 0 } }));
+    const unused = fresh.breakdown.find((b) => b.category === 'Unused schemes')!;
+    expect(unused).toMatchObject({ affected: 2, total: 2 });
+    expect(unused.penalty).toBeLessThanOrEqual(1.5);
+    expect(fresh.healthScore).toBeGreaterThanOrEqual(95);
+  });
+});
+
+describe('review fixes: numbered fields, coverage gaps', () => {
+  it('numbered variants merge only with an un-numbered sibling', () => {
+    const merged = fieldFindings([f('1', 'CD Legacy Region'), f('2', 'CD Legacy Region 2')], NOW).filter((x) => x.rule === 'FIELD_DUPLICATE_NAME');
+    expect(merged).toHaveLength(1);
+    const deliberate = fieldFindings([f('3', 'Approver 1'), f('4', 'Approver 2')], NOW).filter((x) => x.rule === 'FIELD_DUPLICATE_NAME');
+    expect(deliberate).toHaveLength(0);
+  });
+
+  it('withholds unused-scheme advice when the scan has coverage gaps', () => {
+    const schemes = [{ id: '9', name: 'Maybe used', projectKeys: [] }];
+    expect(audit(data({ permissionSchemes: schemes })).counts.PERMISSION_SCHEME_UNUSED).toBe(1);
+    const gap = audit(data({ permissionSchemes: schemes, coverageGaps: ['project HID returned 403'] }));
+    expect(gap.counts.PERMISSION_SCHEME_UNUSED).toBe(0);
+    expect(gap.coverage.complete).toBe(false);
+    expect(gap.coverage.gaps.join(' ')).toMatch(/withheld/);
+    const partial = audit(data({ permissionSchemes: schemes, projects: { total: 3, scanned: 2 } }));
+    expect(partial.counts.PERMISSION_SCHEME_UNUSED).toBe(0);
+  });
+
+  it('lists every finding id for exact diffs', () => {
+    const r = audit(data({ fields: [f('1', 'A', { screensCount: 0 })] }));
+    expect(r.allFindingIds).toEqual(r.findings.map((x) => x.id));
   });
 });
