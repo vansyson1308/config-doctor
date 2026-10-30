@@ -76,6 +76,6 @@ security, admin, Rovo, AI agent, configuration, cleanup, governance.
 ## Assets checklist
 - Logo 144×144 PNG (simple stethoscope/shield on blue) — `<<to create>>`
 - Banner 1840×900 (optional)
-- Screenshots 1840×900 or larger (from docs/screenshots/): admin overview, access explainer, who-can-see,
-  impact preview, Rovo chat answer, audit log.
-- Demo video URL (same as Devpost).
+- Screenshots 1920×1080 (ready in docs/marketplace/): 1 overview + trend, 2 access explainer (CDLAB-2),
+  3 impact preview, 4 audit log, 5 Rovo chat answer.
+- Demo video: video/out/config-doctor-codegeist2026.mp4 (owner uploads to YouTube; link the same URL here).

@@ -1,0 +1,208 @@
+1
+00:00:00,450 --> 00:00:04,729
+Every Jira admin gets this ticket: why can't Emma see
+PAY-3?
+
+2
+00:00:04,729 --> 00:00:10,058
+Tracing schemes, roles, groups and security levels by hand
+takes hours.
+
+3
+00:00:10,058 --> 00:00:13,334
+Config Doctor answers in seconds, and proves it.
+
+4
+00:00:17,650 --> 00:00:23,508
+In Rovo, I pick the Config Doctor agent and ask: why can't
+Emma Paris see PAY-3?
+
+5
+00:00:23,508 --> 00:00:33,166
+The answer comes from a deterministic Forge action that
+reads the permission scheme, roles, groups and issue
+security, not from the model's guesswork.
+
+6
+00:00:33,166 --> 00:00:36,350
+Verdict: blocked by the issue security level.
+
+7
+00:00:36,350 --> 00:00:49,495
+The evidence chain shows Emma passes the permission
+scheme, through group cd-contractors-2024 in role CD
+Developers, but the level Internal only admits only
+cd-staff-hq.
+
+8
+00:00:49,495 --> 00:00:55,074
+The fix, adding her to that group, is simulated first,
+with its blast radius.
+
+9
+00:00:55,074 --> 00:00:57,482
+And Jira's own permission check agrees.
+
+10
+00:00:58,583 --> 00:01:02,244
+Next: who can see PAY-3, and why?
+
+11
+00:01:02,244 --> 00:01:09,928
+Three people, Alana, Kevin and the reporter, each with the
+exact access path through cd-staff-hq.
+
+12
+00:01:09,928 --> 00:01:15,336
+The CD Developers role can browse the project, but the
+security level shuts it out.
+
+13
+00:01:15,336 --> 00:01:19,375
+Every viewer is checked against Jira's own list, and it
+agrees.
+
+14
+00:01:20,650 --> 00:01:28,337
+Every call lands in the audit log on the admin page: who
+asked, which action, the result, and how long it took.
+
+15
+00:01:28,337 --> 00:01:33,758
+Here is yesterday's run of the same question about Emma:
+the same verdict, word for word.
+
+16
+00:01:33,758 --> 00:01:38,705
+Across our scripted test runs, thirty out of thirty
+answers were identical.
+
+17
+00:01:45,117 --> 00:01:47,501
+How healthy is the configuration?
+
+18
+00:01:47,501 --> 00:01:57,211
+Forty-two out of a hundred, from the latest scan of all
+twenty-five projects, with an explainable breakdown and
+ranked findings, each with evidence.
+
+19
+00:01:57,211 --> 00:02:03,185
+Show the duplicate fields: five sets, each with field IDs
+and a recommendation.
+
+20
+00:02:03,185 --> 00:02:07,382
+Now, create a cleanup plan in PAY for the top three
+findings.
+
+21
+00:02:07,382 --> 00:02:14,027
+Config Doctor previews exactly what it would create, one
+epic and three tasks, and asks me to confirm.
+
+22
+00:02:14,027 --> 00:02:15,106
+I say yes.
+
+23
+00:02:15,106 --> 00:02:20,172
+Rovo then shows its own confirmation card, bound to a
+single-use token.
+
+24
+00:02:20,172 --> 00:02:27,909
+Only after that click does it write: epic PAY-12 and three
+tasks, labelled and recorded in the audit log.
+
+25
+00:02:42,617 --> 00:02:45,106
+Before changing anything, simulate it.
+
+26
+00:02:45,106 --> 00:02:50,080
+What happens if I remove group cd-contractors-2024?
+
+27
+00:02:50,080 --> 00:02:51,290
+Medium risk.
+
+28
+00:02:51,290 --> 00:02:58,461
+Max Taylor and Ryan Lee lose browse, create, edit and
+transition in both PAY and VEND.
+
+29
+00:02:58,461 --> 00:03:03,001
+Emma Paris loses VEND, but keeps PAY through cd-dev-vn.
+
+30
+00:03:03,001 --> 00:03:07,001
+It also lists every role and scheme that references the
+group.
+
+31
+00:03:07,001 --> 00:03:11,001
+A read-only simulation: nothing in Jira is changed.
+
+32
+00:03:12,117 --> 00:03:14,356
+Judges don't need our seed scripts.
+
+33
+00:03:14,356 --> 00:03:25,290
+On the admin page, the opt-in Demo Lab previews every
+object it will create, then builds a small, labelled
+scenario on your own site, using only your account.
+
+34
+00:03:25,290 --> 00:03:28,646
+Try these: why can't I see CDLAB-2?
+
+35
+00:03:28,646 --> 00:03:34,277
+Blocked by issue security, Jira agrees, and the fix shows
+its blast radius.
+
+36
+00:03:34,277 --> 00:03:38,001
+Remove demo lab later deletes exactly what it recorded.
+
+37
+00:03:39,150 --> 00:03:47,718
+The admin page works even without Rovo: weekly scans and a
+trend, explainable findings, and the same impact preview.
+
+38
+00:03:47,718 --> 00:03:55,153
+Config Doctor is read-only, apart from two opt-in writes:
+the Demo Lab, and confirmed cleanup plans.
+
+39
+00:03:58,750 --> 00:04:04,739
+Through Rovo MCP, any agent you build in Rovo Studio can
+call the same five tools.
+
+40
+00:04:04,739 --> 00:04:15,700
+This draft agent has no instructions of its own, yet it
+answers correctly: Kevin cannot transition PAY-2, because
+only the CD Developers role can.
+
+41
+00:04:15,700 --> 00:04:18,832
+The same deterministic code, wherever you ask.
+
+42
+00:04:22,383 --> 00:04:24,057
+Config Doctor for Jira.
+
+43
+00:04:24,057 --> 00:04:25,346
+Code computes.
+
+44
+00:04:25,346 --> 00:04:26,768
+Rovo explains.
+

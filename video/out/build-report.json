@@ -1,0 +1,115 @@
+{
+ "total": 267.93,
+ "scenes": [
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\01.mp4",
+   "len": 17.5,
+   "elastic_speed": 1.0,
+   "footage": 17.5,
+   "target": 14.31,
+   "held": 0.0,
+   "id": 1,
+   "narration": 13.01,
+   "start": 0.0
+  },
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\02.mp4",
+   "len": 41.233333,
+   "elastic_speed": 2.32,
+   "footage": 41.07,
+   "target": 41.24,
+   "held": 0.17,
+   "id": 2,
+   "narration": 39.94,
+   "start": 17.2
+  },
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\03.mp4",
+   "len": 22.366667,
+   "elastic_speed": 2.5,
+   "footage": 22.37,
+   "target": 22.2,
+   "held": 0.0,
+   "id": 3,
+   "narration": 20.9,
+   "start": 58.13
+  },
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\04.mp4",
+   "len": 24.766667,
+   "elastic_speed": 2.5,
+   "footage": 24.77,
+   "target": 19.47,
+   "held": 0.0,
+   "id": 4,
+   "narration": 18.17,
+   "start": 80.2
+  },
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\05.mp4",
+   "len": 57.8,
+   "elastic_speed": 2.5,
+   "footage": 57.8,
+   "target": 44.21,
+   "held": 0.0,
+   "id": 5,
+   "narration": 42.91,
+   "start": 104.67
+  },
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\06.mp4",
+   "len": 29.8,
+   "elastic_speed": 2.17,
+   "footage": 29.73,
+   "target": 29.81,
+   "held": 0.08,
+   "id": 6,
+   "narration": 28.51,
+   "start": 162.17
+  },
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\07.mp4",
+   "len": 27.333333,
+   "elastic_speed": 2.5,
+   "footage": 27.33,
+   "target": 27.32,
+   "held": 0.0,
+   "id": 7,
+   "narration": 26.02,
+   "start": 191.67
+  },
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\08.mp4",
+   "len": 19.9,
+   "elastic_speed": 2.5,
+   "footage": 19.9,
+   "target": 17.4,
+   "held": 0.0,
+   "id": 8,
+   "narration": 16.1,
+   "start": 218.7
+  },
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\09.mp4",
+   "len": 23.933333,
+   "elastic_speed": 2.5,
+   "footage": 23.93,
+   "target": 21.51,
+   "held": 0.0,
+   "id": 9,
+   "narration": 20.21,
+   "start": 238.3
+  },
+  {
+   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\10.mp4",
+   "len": 6.0,
+   "elastic_speed": 1.0,
+   "footage": 6.0,
+   "target": 5.79,
+   "held": 0.0,
+   "id": 10,
+   "narration": 4.49,
+   "start": 261.93
+  }
+ ]
+}

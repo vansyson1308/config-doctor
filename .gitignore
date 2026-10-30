@@ -7,3 +7,8 @@ coverage/
 *.log
 .DS_Store
 scripts/seed/.state/
+video/.profile/
+video/raw/
+video/out/*.mp4
+video/qc/*.png
+!video/qc/contact-sheet.png

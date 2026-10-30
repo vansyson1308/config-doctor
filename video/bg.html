@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box}html,body{margin:0;width:1920px;height:1080px}
+body{font-family:Arial,sans-serif;color:#fff;background:radial-gradient(ellipse at 75% 80%,#183f7c,#0b1e40 75%)}
+main{position:absolute;left:110px;top:0;bottom:0;width:1020px;display:flex;flex-direction:column;justify-content:center}
+.brand{display:flex;align-items:center;gap:22px;font-size:28px;color:#9fc3ff;letter-spacing:4px;font-weight:700}
+.brand img{width:72px;height:72px}
+h1{font-size:76px;line-height:1.08;margin:44px 0 28px}
+p{font-size:38px;line-height:1.35;color:#e7efff;margin:0}
+.live{margin-top:56px;font-size:26px;color:#9fc3ff}
+.live b{color:#2ed06e}
+</style></head><body><main id="m"><div class="brand"><img src="../docs/brand/logo.svg">CONFIG DOCTOR</div><h1 id="t"></h1><p id="c"></p><div class="live"><b>●</b> Live app on a Jira Cloud demo site</div></main>
+<script>
+const q = new URLSearchParams(location.search);
+document.getElementById('t').textContent = q.get('title') || '';
+document.getElementById('c').textContent = q.get('caption') || '';
+if (q.get('plain')) document.getElementById('m').hidden = true;
+</script></body></html>

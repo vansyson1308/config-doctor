@@ -1,0 +1,330 @@
+{
+ "voice": "en-US-AndrewNeural",
+ "rate": "-5%",
+ "sources": {
+  "take1": "raw/take1.mkv",
+  "take2": "raw/take2.mkv"
+ },
+ "layouts": {
+  "full": {
+   "crop": [
+    20,
+    78,
+    1880,
+    988
+   ]
+  },
+  "panel": {
+   "crop": [
+    1378,
+    136,
+    522,
+    926
+   ],
+   "height": 1000,
+   "x": 1246,
+   "y": 40
+  },
+  "zoom": {
+   "crop": [
+    420,
+    150,
+    1440,
+    810
+   ]
+  }
+ },
+ "scenes": [
+  {
+   "id": 1,
+   "title": "Why can't Emma see PAY-3?",
+   "caption": "The most common Jira admin ticket",
+   "narration": "Every Jira admin gets this ticket: why can't Emma see PAY-3? Tracing schemes, roles, groups and security levels by hand takes hours. Config Doctor answers in seconds, and proves it.",
+   "segments": [
+    {
+     "card": "title",
+     "dur": 4.5
+    },
+    {
+     "src": "take1",
+     "in": 57,
+     "out": 70,
+     "layout": "full",
+     "speed": 1
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "title": "Access Explainer",
+   "caption": "Verdict, evidence chain, simulated fix, Jira's own check",
+   "narration": "In Rovo, I pick the Config Doctor agent and ask: why can't Emma Paris see PAY-3? The answer comes from a deterministic Forge action that reads the permission scheme, roles, groups and issue security, not from the model's guesswork. Verdict: blocked by the issue security level. The evidence chain shows Emma passes the permission scheme, through group cd-contractors-2024 in role CD Developers, but the level Internal only admits only cd-staff-hq. The fix, adding her to that group, is simulated first, with its blast radius. And Jira's own permission check agrees.",
+   "segments": [
+    {
+     "src": "take1",
+     "in": 79,
+     "out": 84,
+     "layout": "full",
+     "speed": 1.5
+    },
+    {
+     "src": "take1",
+     "in": 99,
+     "out": 117,
+     "layout": "full",
+     "speed": 3
+    },
+    {
+     "src": "take1",
+     "in": 123,
+     "out": 136,
+     "layout": "panel",
+     "speed": 2.5
+    },
+    {
+     "src": "take1",
+     "in": 136,
+     "out": 198,
+     "layout": "panel",
+     "elastic": true
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "title": "Who can see this?",
+   "caption": "Every viewer and the exact path, checked against Jira",
+   "narration": "Next: who can see PAY-3, and why? Three people, Alana, Kevin and the reporter, each with the exact access path through cd-staff-hq. The CD Developers role can browse the project, but the security level shuts it out. Every viewer is checked against Jira's own list, and it agrees.",
+   "segments": [
+    {
+     "src": "take1",
+     "in": 200,
+     "out": 214,
+     "layout": "panel",
+     "speed": 3.5
+    },
+    {
+     "src": "take1",
+     "in": 214,
+     "out": 260,
+     "layout": "panel",
+     "elastic": true
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "title": "Audit log",
+   "caption": "Every action: who, when, inputs, result, duration",
+   "narration": "Every call lands in the audit log on the admin page: who asked, which action, the result, and how long it took. Here is yesterday's run of the same question about Emma: the same verdict, word for word. Across our scripted test runs, thirty out of thirty answers were identical.",
+   "segments": [
+    {
+     "src": "take2",
+     "in": 88,
+     "out": 150,
+     "layout": "full",
+     "elastic": true
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "title": "Sprawl audit and cleanup plan",
+   "caption": "Explainable score; nothing is written without preview and confirmation",
+   "narration": "How healthy is the configuration? Forty-two out of a hundred, from the latest scan of all twenty-five projects, with an explainable breakdown and ranked findings, each with evidence. Show the duplicate fields: five sets, each with field IDs and a recommendation. Now, create a cleanup plan in PAY for the top three findings. Config Doctor previews exactly what it would create, one epic and three tasks, and asks me to confirm. I say yes. Rovo then shows its own confirmation card, bound to a single-use token. Only after that click does it write: epic PAY-12 and three tasks, labelled and recorded in the audit log.",
+   "segments": [
+    {
+     "src": "take1",
+     "in": 268,
+     "out": 280,
+     "layout": "panel",
+     "speed": 4
+    },
+    {
+     "src": "take1",
+     "in": 280,
+     "out": 306,
+     "layout": "panel",
+     "elastic": true
+    },
+    {
+     "src": "take1",
+     "in": 318,
+     "out": 330,
+     "layout": "panel",
+     "speed": 4
+    },
+    {
+     "src": "take1",
+     "in": 330,
+     "out": 352,
+     "layout": "panel",
+     "elastic": true
+    },
+    {
+     "src": "take1",
+     "in": 366,
+     "out": 378,
+     "layout": "panel",
+     "speed": 4
+    },
+    {
+     "src": "take1",
+     "in": 378,
+     "out": 400,
+     "layout": "panel",
+     "elastic": true
+    },
+    {
+     "src": "take1",
+     "in": 404,
+     "out": 420,
+     "layout": "panel",
+     "speed": 3
+    },
+    {
+     "src": "take1",
+     "in": 420,
+     "out": 436,
+     "layout": "panel",
+     "elastic": true
+    },
+    {
+     "src": "take1",
+     "in": 436,
+     "out": 448,
+     "layout": "panel",
+     "speed": 4
+    },
+    {
+     "src": "take1",
+     "in": 448,
+     "out": 464,
+     "layout": "panel",
+     "elastic": true
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "title": "Change Impact Preview",
+   "caption": "Read-only simulation before you change anything",
+   "narration": "Before changing anything, simulate it. What happens if I remove group cd-contractors-2024? Medium risk. Max Taylor and Ryan Lee lose browse, create, edit and transition in both PAY and VEND. Emma Paris loses VEND, but keeps PAY through cd-dev-vn. It also lists every role and scheme that references the group. A read-only simulation: nothing in Jira is changed.",
+   "segments": [
+    {
+     "src": "take1",
+     "in": 508,
+     "out": 524,
+     "layout": "panel",
+     "speed": 4
+    },
+    {
+     "src": "take1",
+     "in": 524,
+     "out": 580,
+     "layout": "panel",
+     "elastic": true
+    }
+   ]
+  },
+  {
+   "id": 7,
+   "title": "Demo Lab",
+   "caption": "Try it on any site; removal deletes only what it recorded",
+   "narration": "Judges don't need our seed scripts. On the admin page, the opt-in Demo Lab previews every object it will create, then builds a small, labelled scenario on your own site, using only your account. Try these: why can't I see CDLAB-2? Blocked by issue security, Jira agrees, and the fix shows its blast radius. Remove demo lab later deletes exactly what it recorded.",
+   "segments": [
+    {
+     "src": "take2",
+     "in": 156,
+     "out": 176,
+     "layout": "full",
+     "speed": 2
+    },
+    {
+     "src": "take2",
+     "in": 176,
+     "out": 214,
+     "layout": "full",
+     "speed": 10
+    },
+    {
+     "src": "take2",
+     "in": 245,
+     "out": 279,
+     "layout": "zoom",
+     "elastic": true
+    }
+   ]
+  },
+  {
+   "id": 8,
+   "title": "Works without Rovo",
+   "caption": "Admin page: score, trend, findings, impact preview",
+   "narration": "The admin page works even without Rovo: weekly scans and a trend, explainable findings, and the same impact preview. Config Doctor is read-only, apart from two opt-in writes: the Demo Lab, and confirmed cleanup plans.",
+   "segments": [
+    {
+     "src": "take2",
+     "in": 16,
+     "out": 36,
+     "layout": "full",
+     "elastic": true
+    },
+    {
+     "src": "take2",
+     "in": 49,
+     "out": 60,
+     "layout": "full",
+     "elastic": true
+    },
+    {
+     "src": "take2",
+     "in": 63,
+     "out": 82,
+     "layout": "full",
+     "elastic": true
+    }
+   ]
+  },
+  {
+   "id": 9,
+   "title": "Rovo MCP tools",
+   "caption": "Any Rovo Studio agent can call the same tools",
+   "narration": "Through Rovo MCP, any agent you build in Rovo Studio can call the same five tools. This draft agent has no instructions of its own, yet it answers correctly: Kevin cannot transition PAY-2, because only the CD Developers role can. The same deterministic code, wherever you ask.",
+   "segments": [
+    {
+     "src": "take2",
+     "in": 284,
+     "out": 300,
+     "layout": "full",
+     "speed": 2
+    },
+    {
+     "src": "take2",
+     "in": 322,
+     "out": 333,
+     "layout": "full",
+     "speed": 3
+    },
+    {
+     "src": "take2",
+     "in": 333,
+     "out": 366,
+     "layout": "panel",
+     "elastic": true
+    }
+   ]
+  },
+  {
+   "id": 10,
+   "title": "",
+   "caption": "",
+   "narration": "Config Doctor for Jira. Code computes. Rovo explains.",
+   "segments": [
+    {
+     "card": "end",
+     "dur": 6
+    }
+   ]
+  }
+ ]
+}
