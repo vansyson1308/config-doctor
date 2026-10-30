@@ -232,3 +232,45 @@ no lab.
 2. Marketplace listing (docs/MARKETPLACE.md): partner profile, agreement, privacy policy URL, logo.
 3. Run `npm run demo:reset` yourself when you want to delete cleanup-plan issues (permanent deletion).
 4. Optional: enable external MCP for the app in admin.atlassian.com.
+
+## Publish & Share (2026-10-30) — prompt 03
+
+**1. Fixes before going public**
+- `docs/PRIVACY.md` rewritten against the code (src/lab/labService.ts, src/actions/cleanupPlan.ts,
+  src/storage/*): "What it changes" now describes exactly the two opt-in writes (Demo Lab: preview + 10-minute
+  single-use token, creates only its own `cdlab`/`CD Lab`/`CDLAB` objects with the admin's account, adds only the
+  admin and the app user, records every object incl. Jira's side objects, deletes only recorded objects after a
+  name re-check; cleanup plan: preview + 15-minute token + Rovo confirmation, issues only, never deletes).
+  "What it stores" adds the Demo Lab ledger (object ids/names, pre-existing field ids, creator accountId,
+  status/error; reset to "removed" after removal) and both token types. "Last updated" + "Support:
+  sonnv.hd34@gmail.com".
+- `LICENSE` (MIT, Copyright (c) 2026 Nguyen Van Son); `SECURITY.md` (report to the support email; what the app
+  can and cannot do).
+- Consistency: agent prompt ("the ONLY action of yours that writes"; Demo Lab is admin-page only), MARKETPLACE
+  "Built for trust", SUBMISSION tech paragraph now name both writes. README/SPEC/AGENTS already did.
+- Checks: `npm test` 137 passed; `tsc --noEmit` clean; `forge lint` no issues. Commit 86fba25.
+
+**Secret scan of the whole history (8 commits, before the first push)**
+- `git grep -I -E "ATATT…|-----BEGIN … PRIVATE KEY|ghp_…|github_pat_|xox[bap]-|AKIA…|sk-…|JIRA_API_TOKEN=<value>|
+  FORGE_API_TOKEN=<value>|password=…" $(git rev-list --all)` → no matches. `git log --all -p | grep -c ATATT` → 0.
+- Every value in the local `.env` (token, email) searched with `git grep -F` across all commits → 0 hits each
+  (values never printed).
+- Files ever committed matching `.env*`, `.state/`, `coverage/`, `*.pem`, `*.key`, `id_rsa`: only `.env.example`
+  (placeholders, empty token). `.env` is git-ignored; `scripts/seed/.state/` and `coverage/` untracked.
+
+**2. Public repo**
+- `gh repo create vansyson1308/config-doctor --public --source . --remote origin --push` → 
+  https://github.com/vansyson1308/config-doctor (PUBLIC, branch main), description set, topics atlassian, forge,
+  jira, rovo, mcp, codegeist.
+- Verified with the GitHub API (the browser visit to github.com was blocked by the session's permission
+  classifier): rendered README contains the 5 `docs/screenshots/*.png` images, each served 200 image/png from
+  raw.githubusercontent.com; README, docs/PRIVACY.md, LICENSE, SECURITY.md blob URLs return 200.
+- Privacy policy URL: https://github.com/vansyson1308/config-doctor/blob/main/docs/PRIVACY.md
+
+**3. Sharing enabled (developer console → Distribution → Edit)**
+- Status **Sharing with anyone**; Company/Department "Nguyen Van Son" (App owner shows the account name
+  "Sơn Nguyễn Văn"; the form has no app-name field, so the console app name was not changed); Customer support
+  contact sonnv.hd34@gmail.com; Privacy policy = URL above; Terms of service left empty (none provided);
+  Stores personal data **Yes** (no further personal-data questions were shown). Saved → "Distribution controls
+  updated". Install target: **Jira** → "Congratulations, you are ready to share"; link generated for the
+  production deployment of Oct 29, 2026 20:35:45 UTC (2.2.0). No terms were accepted, nothing else changed.
