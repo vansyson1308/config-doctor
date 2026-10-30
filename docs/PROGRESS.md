@@ -274,3 +274,33 @@ no lab.
   Stores personal data **Yes** (no further personal-data questions were shown). Saved → "Distribution controls
   updated". Install target: **Jira** → "Congratulations, you are ready to share"; link generated for the
   production deployment of Oct 29, 2026 20:35:45 UTC (2.2.0). No terms were accepted, nothing else changed.
+
+**4. Install link verified like a judge (configdoctor.atlassian.net, production)**
+- Link added to `docs/SUBMISSION.md` §1 (clickable + raw) and README "For judges" step 1; §1.1 status updated.
+- `forge uninstall -i ba2af55f-…` (development) on configdoctor → "Uninstalled". (An earlier attempt with a
+  mistyped installation id failed harmlessly; `forge install list` confirmed nothing was removed.)
+- Install via the link in the browser: install page shows "By Sơn Nguyễn Văn (Nguyen Van Son)", vendor privacy
+  policy → our PRIVACY.md, "Support service desk" → mailto:sonnv.hd34@gmail.com → Get app → site
+  configdoctor.atlassian.net → Install → "Installation successful" (`docs/evidence/m6/share-1-install-success.png`).
+  `forge install list`: `a382fd09-… production configdoctor.atlassian.net: Jira, Up-to-date`.
+- Inventory baseline `share-before.json` = IDENTICAL to `second-after-cycleB.json` (state after M6).
+- Judge path on the production admin page (no DEV badge), `forge logs -e production`
+  (`docs/evidence/m6/share-prod-logs.txt`):
+  - 04:58:06 Run scan now → scan finished in 7.9 s, **98/100**, 2 findings.
+  - 04:58:40 Create demo lab preview → 04:59:20 "create done: ready" (25 objects recorded).
+  - 05:00:08 Try these → **CDLAB-2: NO_ACCESS, blocked by ISSUE_SECURITY, Jira check AGREES**
+    (`share-2-cdlab2-no-access.png`).
+  - 05:00:44 Remove group cdlab-contractors → **medium; Sơn loses Browse/Create/Edit/Transition in CDLAB**
+    (`share-3-impact-cdlab-contractors.png`).
+  - 05:01:00 Remove preview (20 lines) → 05:01:24 "remove done: removed".
+  - Inventory `share-before` vs `share-after`: **IDENTICAL**.
+- QC finding fixed on the way: the admin page header still said "Read-only: Config Doctor never changes your
+  configuration." Now "…never changes your existing configuration (the opt-in demo lab below creates and removes
+  only its own objects)"; cleanup-plan issue text says "never changes existing configuration". npm test 137
+  passed, tsc clean, forge lint clean; deployed development 4.24.0 and production 2.3.0; both installs
+  Up-to-date; new header verified on the production admin page; the install link still opens after the deploy.
+- End state: configdoctor.atlassian.net = PRODUCTION install, no lab. one-atlas-sery = development install, Demo
+  Lab present (untouched), ready for the video.
+
+**Owner-only steps remaining**: record the demo video, submit on Devpost (repo, install link, video), Marketplace
+listing (docs/MARKETPLACE.md; logo still to create), optional external MCP enablement.

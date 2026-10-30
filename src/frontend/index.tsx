@@ -454,7 +454,7 @@ function App() {
   if (!data.ok) return <ErrorBox message={data.error?.message ?? 'Unknown error'} />;
   return (
     <Stack space="space.300">
-      <Text>Deterministic, auditable diagnostics for Jira access and configuration. Read-only: Config Doctor never changes your configuration.</Text>
+      <Text>Deterministic, auditable diagnostics for Jira access and configuration. Read-only: Config Doctor never changes your existing configuration (the opt-in demo lab below creates and removes only its own objects).</Text>
       {scanError && <ErrorBox message={scanError} />}
       <Tabs id="config-doctor-tabs">
         <TabList>

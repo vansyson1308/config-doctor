@@ -56,7 +56,7 @@ export function buildCleanupPlan(projectKey: string, findings: Finding[], scanne
       para('Evidence:'),
       bullets(f.evidence.length ? f.evidence : ['(none recorded)']),
       para(`Recommendation: ${f.recommendation}`),
-      para('Config Doctor never changes configuration itself; an admin applies this change and verifies impact first (ask Config Doctor "what happens if…").'),
+      para('Config Doctor never changes existing configuration itself; an admin applies this change and verifies impact first (ask Config Doctor "what happens if…").'),
     ),
     labels: [LABEL],
     findingId: f.id,

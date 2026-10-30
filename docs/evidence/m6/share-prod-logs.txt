@@ -1,0 +1,17 @@
+2026-10-30T04:57:38.680Z {"action":"admin-dashboard","source":"admin-page","outcome":"ok","summary":"score n/a","durationMs":931}
+2026-10-30T04:57:39.375Z {"action":"demo-lab-status","source":"admin-page","outcome":"ok","summary":"none","durationMs":174}
+2026-10-30T04:57:39.561Z {"action":"admin-audit-log","source":"admin-page","outcome":"ok","summary":"0 records","durationMs":157}
+2026-10-30T04:58:06.753Z {"action":"admin-run-scan","source":"admin-page","outcome":"ok","summary":"started scan-1793336285809","durationMs":1209}
+2026-10-30T04:58:07.353Z {"action":"admin-dashboard","source":"admin-page","outcome":"ok","summary":"score n/a","durationMs":186}
+2026-10-30T04:58:17.925Z {"action":"admin-dashboard","source":"admin-page","outcome":"ok","summary":"score 98","durationMs":174}
+2026-10-30T04:58:40.926Z {"action":"demo-lab-preview","source":"admin-page","outcome":"ok","summary":"create: 7 lines","durationMs":335}
+2026-10-30T04:59:15.414Z {"action":"demo-lab-run","source":"admin-page","outcome":"ok","summary":"create continuing: creating","durationMs":21397}
+2026-10-30T04:59:20.920Z {"action":"demo-lab-run","source":"admin-page","outcome":"ok","summary":"create done: ready","durationMs":5065}
+2026-10-30T04:59:21.592Z {"action":"demo-lab-status","source":"admin-page","outcome":"ok","summary":"ready","durationMs":139}
+2026-10-30T04:59:22.136Z {"action":"admin-dashboard","source":"admin-page","outcome":"ok","summary":"score 98","durationMs":138}
+2026-10-30T05:00:08.465Z {"action":"explain-access","source":"admin-page","outcome":"ok","summary":"Sơn Nguyễn Văn BROWSE_PROJECTS CDLAB-2: NO_ACCESS","durationMs":3594}
+2026-10-30T05:00:44.775Z {"action":"preview-change-impact","source":"admin-page","outcome":"ok","summary":"Remove group cdlab-contractors: risk medium; 1 user(s) would lose Browse in 1 project(s); 1 user(s) lose at least one key permission.","durationMs":653}
+2026-10-30T05:01:00.961Z {"action":"demo-lab-preview","source":"admin-page","outcome":"ok","summary":"remove: 20 lines","durationMs":418}
+2026-10-30T05:01:24.237Z {"action":"demo-lab-run","source":"admin-page","outcome":"ok","summary":"remove done: removed","durationMs":12309}
+2026-10-30T05:01:24.765Z {"action":"demo-lab-status","source":"admin-page","outcome":"ok","summary":"removed","durationMs":140}
+2026-10-30T05:01:25.410Z {"action":"admin-dashboard","source":"admin-page","outcome":"ok","summary":"score 98","durationMs":177}
