@@ -33,7 +33,8 @@ score and change-impact previews. Every action is audited.
 2. **See the mess, fix it safely.** A 0–100 health score with an explainable breakdown: duplicate and unused
    fields, empty groups that still hold grants, unused schemes and screens. Preview what removing a group or
    switching a scheme would break before you touch it.
-3. **Built for trust.** Read-only by default, admin-only, every action in an audit log, no data leaves
+3. **Built for trust.** Read-only by default (the only writes are the opt-in Demo Lab, which removes exactly
+   what it created, and a confirmed cleanup plan), admin-only, every action in an audit log, no data leaves
    Atlassian (Runs on Atlassian eligible). Works in Rovo chat, Rovo Studio (MCP tools) and a Jira admin page.
 
 **Description:**

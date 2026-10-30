@@ -76,7 +76,9 @@ async-event `consumer` and `scheduledTrigger`, Forge KVS. All reasoning lives in
 with no Forge imports and 100+ unit tests over fixtures (holder types, roles, groups, reporter/assignee,
 user/group-picker fields, security levels, product access). The agent prompt only routes questions and
 formats evidence. Every action validates LLM-supplied inputs, identifies the user from the Forge context,
-checks they are a Jira admin server-side, and writes an audit record. The scanner is chunked and time-sliced
+checks they are a Jira admin server-side, and writes an audit record. The app is read-only except two opt-in,
+previewed, token-confirmed writes: the Demo Lab (creates and later deletes only its own recorded objects) and
+the cleanup plan (creates issues). The scanner is chunked and time-sliced
 over async events (a full scan of a 25-project demo site takes ~10 s), and snapshots feed the trend chart.
 
 ### Challenges
