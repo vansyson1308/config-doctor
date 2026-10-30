@@ -145,9 +145,12 @@ shows it being created.
 Upload: YouTube, **public**, title "Config Doctor for Jira — Codegeist 2026", link in Devpost.
 
 ## 4. Submission checklist
-- [ ] Installation link generated (section 1.2) and tested on a second site
-- [ ] Demo video recorded (< 4:45), uploaded public on YouTube
+- [x] Installation link generated (section 1.2) and tested on a second site
+- [x] Demo video recorded (< 4:45): `video/out/config-doctor-codegeist2026.mp4` (4:28; see video/QC.md)
+- [ ] Upload to YouTube (public): upload the **clean** MP4 `config-doctor-codegeist2026.mp4`, not the
+      `-subtitled` copy, and attach `video/out/config-doctor-codegeist2026.srt` as English captions
+      (YouTube Studio → Subtitles → Add → Upload file → With timing). Then put the link in README and Devpost.
 - [ ] Optional bonus: Marketplace listing submitted (docs/MARKETPLACE.md) and review-ticket link added to Devpost
 - [ ] Devpost: category Apps for Software Teams; bonus Best Agents + Best app with Atlassian MCP
 - [ ] Devpost text pasted from section 2; testing instructions from 1.3
-- [ ] Repository link (optional): push this repo to GitHub (public) if you want judges to read the code
+- [x] Repository link: https://github.com/vansyson1308/config-doctor (public)

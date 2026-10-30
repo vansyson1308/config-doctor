@@ -187,7 +187,8 @@ def main():
         mid = starts[i] + r['len'] / 2
         run(['-ss', f'{mid:.2f}', '-i', str(final), '-frames:v', '1', str(QC / f"scene{r['id']:02d}-mid.png")])
     (OUT / 'build-report.json').write_text(json.dumps({'total': round(total, 2), 'scenes': [
-        {k: (str(v) if isinstance(v, pathlib.Path) else v) for k, v in r.items()} | {'start': round(starts[i], 2)}
+        {k: (v.relative_to(ROOT.parent).as_posix() if isinstance(v, pathlib.Path) else v) for k, v in r.items()}
+        | {'start': round(starts[i], 2)}
         for i, r in enumerate(report)]}, indent=1), 'utf-8')
     print(f'total {total:.1f}s')
     for i, r in enumerate(report):

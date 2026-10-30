@@ -1,5 +1,7 @@
 # Config Doctor for Jira
 
+Demo video: YouTube link coming soon
+
 **Deterministic, auditable answers to Jira's most common admin questions — explained by a Rovo agent.**
 
 > "Why can't Linh see PROJ-123?" · "Who can see this issue and why?" · "How messy is our configuration?" ·

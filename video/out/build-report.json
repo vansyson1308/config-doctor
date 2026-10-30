@@ -2,7 +2,7 @@
  "total": 267.93,
  "scenes": [
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\01.mp4",
+   "file": "video/raw/scene/01.mp4",
    "len": 17.5,
    "elastic_speed": 1.0,
    "footage": 17.5,
@@ -13,7 +13,7 @@
    "start": 0.0
   },
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\02.mp4",
+   "file": "video/raw/scene/02.mp4",
    "len": 41.233333,
    "elastic_speed": 2.32,
    "footage": 41.07,
@@ -24,7 +24,7 @@
    "start": 17.2
   },
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\03.mp4",
+   "file": "video/raw/scene/03.mp4",
    "len": 22.366667,
    "elastic_speed": 2.5,
    "footage": 22.37,
@@ -35,7 +35,7 @@
    "start": 58.13
   },
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\04.mp4",
+   "file": "video/raw/scene/04.mp4",
    "len": 24.766667,
    "elastic_speed": 2.5,
    "footage": 24.77,
@@ -46,7 +46,7 @@
    "start": 80.2
   },
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\05.mp4",
+   "file": "video/raw/scene/05.mp4",
    "len": 57.8,
    "elastic_speed": 2.5,
    "footage": 57.8,
@@ -57,7 +57,7 @@
    "start": 104.67
   },
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\06.mp4",
+   "file": "video/raw/scene/06.mp4",
    "len": 29.8,
    "elastic_speed": 2.17,
    "footage": 29.73,
@@ -68,7 +68,7 @@
    "start": 162.17
   },
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\07.mp4",
+   "file": "video/raw/scene/07.mp4",
    "len": 27.333333,
    "elastic_speed": 2.5,
    "footage": 27.33,
@@ -79,7 +79,7 @@
    "start": 191.67
   },
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\08.mp4",
+   "file": "video/raw/scene/08.mp4",
    "len": 19.9,
    "elastic_speed": 2.5,
    "footage": 19.9,
@@ -90,7 +90,7 @@
    "start": 218.7
   },
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\09.mp4",
+   "file": "video/raw/scene/09.mp4",
    "len": 23.933333,
    "elastic_speed": 2.5,
    "footage": 23.93,
@@ -101,7 +101,7 @@
    "start": 238.3
   },
   {
-   "file": "C:\\Users\\MSI\\projects\\config-doctor\\video\\raw\\scene\\10.mp4",
+   "file": "video/raw/scene/10.mp4",
    "len": 6.0,
    "elastic_speed": 1.0,
    "footage": 6.0,
